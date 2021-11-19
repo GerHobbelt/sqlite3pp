@@ -8,60 +8,79 @@
 
 namespace sqlite3pp
 {
-  class Table_Base
-  {
-  public:
-	  static void setGlobalDB( const std::string& db_filename );
-	  static void setGlobalDB( const std::wstring& db_filename );
-  protected:
-	static sqlite3pp::database global_db; // To be used as global DB
-  };
+	std::string to_string( const wchar_t* src );
+	std::wstring to_wstring( const char* src );
+	std::string to_string( const std::wstring &src );
+	std::wstring to_wstring( const std::string &src );
 
-  template <class T, class T2 = tstring, class BT = T>  // Having ability to change BT to a base class allows for merging queries
-  class Table : public Table_Base
-  {
-	  using DataType = BT;
-	  using VectType = std::vector<DataType>;
-	  VectType m_VectType;
-	  sqlite3pp::database &m_db;
-	  void PopulateVect( sqlite3pp::database &db, sqlite3pp::query &qry )
-	  {
-		  for ( auto q : qry )
-		  {
-			  DataType temp_var;
-			  temp_var.GetStreamData( q );
-			  m_VectType.push_back( temp_var );
-		  }
-	  }
-	  void PrepareQuery( sqlite3pp::database &db, std::string WhereClause )
-	  {
-		  sqlite3pp::query qry( m_db, ("SELECT " + T::GetSelectNames() + " FROM " + T::GetTableName() + " " + WhereClause).c_str() );
-		  PopulateVect( db, qry );
-	  }
-	  void PrepareQuery( sqlite3pp::database &db, std::wstring WhereClause )
-	  {
-		  sqlite3pp::query qry( m_db, (L"SELECT " + T::GetSelectNames() + L" FROM " + T::GetTableName() + L" " + WhereClause).c_str() );
-		  PopulateVect( db, qry );
-	  }
-  public:
-	  Table( T2 WhereClause = T2() ) :m_db( global_db ) { PrepareQuery( m_db, WhereClause ); }
-	  Table( sqlite3pp::database &db, T2 WhereClause = T2() ) :m_db( db ) {PrepareQuery( m_db, WhereClause );}
-	  Table( sqlite3pp::database &db, const VectType &VectTypes ) :m_db( db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
-	  Table( const VectType &VectTypes ) :m_db( global_db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
-	  const VectType& Get() const { return m_VectType; }
-	  void Insert( const VectType& Data )
-	  {
-		  for ( auto d : Data )
-			  m_db.execute( _T("INSERT INTO ") + T::GetTableName() + _T(" (") + T::GetSelectNames() + _T(") VALUES (") + d.GetValues() + _T(")") );
-	  }
+	class db_gbl
+	{
+	public:
+		static void setGlobalDB( const std::string& db_filename );
+		static void setGlobalDB( const std::wstring& db_filename );
+		static int Execute( const std::string& sql );
+		static int Execute( const std::wstring& sql );
+		static int Connect( char const* dbname, int flags, const char* vfs = nullptr );
+		static int Connect( wchar_t const* dbname, int flags, const wchar_t* vfs = nullptr );
+		static int Attach( char const* dbname, char const* name );
+		static int Attach( wchar_t const* dbname, wchar_t const* name );
+		static int Detach( char const* name );
+		static int Detach( wchar_t const* name );
+		static int Backup( char const* dbname, database& destdb, char const* destdbname, database::backup_handler h, int step_page = 5 );
+		static int Backup( wchar_t const* dbname, database& destdb, wchar_t const* destdbname, database::backup_handler h, int step_page = 5 );
+		static std::string GetErrMsg();
+		static std::wstring GetErrMsgW();
+		static int GetErr();
+		static int GetExtErr();
+	protected:
+		static sqlite3pp::database global_db; // To be used as global DB
+	};
 
-	  auto begin() { return m_VectType.begin(); }
-	  auto end() { return m_VectType.end(); }
-	  size_t size() const { return m_VectType.size(); }
-	  const DataType& operator[]( int i ) { return m_VectType[i]; }
-	  void push_back( const DataType &datatype ) { return m_VectType.push_back(datatype); }
-	  void append( const VectType &vecttype ) { return m_VectType.push_back( vecttype ); }
-  };
+	template <class T, class T2 = tstring, class BT = T>  // Having ability to change BT to a base class allows for merging queries
+	class Table : public db_gbl
+	{
+		using DataType = BT;
+		using VectType = std::vector<DataType>;
+		VectType m_VectType;
+		sqlite3pp::database &m_db;
+		void PopulateVect( sqlite3pp::database &db, sqlite3pp::query &qry )
+		{
+			for ( auto q : qry )
+			{
+				DataType temp_var;
+				temp_var.GetStreamData( q );
+				m_VectType.push_back( temp_var );
+			}
+		}
+		void PrepareQuery( sqlite3pp::database &db, std::string WhereClause )
+		{
+			sqlite3pp::query qry( m_db, ("SELECT " + T::GetSelectNames() + " FROM " + T::GetTableName() + " " + WhereClause).c_str() );
+			PopulateVect( db, qry );
+		}
+		void PrepareQuery( sqlite3pp::database &db, std::wstring WhereClause )
+		{
+			sqlite3pp::query qry( m_db, (L"SELECT " + T::GetSelectNames() + L" FROM " + T::GetTableName() + L" " + WhereClause).c_str() );
+			PopulateVect( db, qry );
+		}
+	public:
+		Table( T2 WhereClause = T2() ) :m_db( global_db ) { PrepareQuery( m_db, WhereClause ); }
+		Table( sqlite3pp::database &db, T2 WhereClause = T2() ) :m_db( db ) { PrepareQuery( m_db, WhereClause ); }
+		Table( sqlite3pp::database &db, const VectType &VectTypes ) :m_db( db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
+		Table( const VectType &VectTypes ) :m_db( global_db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
+		const VectType& Get() const { return m_VectType; }
+		void Insert( const VectType& Data )
+		{
+			for ( auto d : Data )
+				m_db.execute( _T( "INSERT INTO " ) + T::GetTableName() + _T( " (" ) + T::GetSelectNames() + _T( ") VALUES (" ) + d.GetValues() + _T( ")" ) );
+		}
+
+		auto begin() { return m_VectType.begin(); }
+		auto end() { return m_VectType.end(); }
+		size_t size() const { return m_VectType.size(); }
+		const DataType& operator[]( int i ) { return m_VectType[i]; }
+		void push_back( const DataType &datatype ) { return m_VectType.push_back( datatype ); }
+		void append( const VectType &vecttype ) { return m_VectType.push_back( vecttype ); }
+	};
 
 } // namespace sqlite3pp
 

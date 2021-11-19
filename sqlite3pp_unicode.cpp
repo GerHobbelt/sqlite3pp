@@ -22,6 +22,28 @@ namespace sqlite3pp
 		return retrnVal;
 	}
 
+	std::string to_string( const wchar_t* src )
+	{
+		int nchars = WideCharToMultiByte( CP_ACP, 0, src, -1, NULL, 0, NULL, NULL );
+		char* source = new char[nchars + 2]();
+		if ( source == NULL )
+			return std::string();
+		WideCharToMultiByte( CP_ACP, 0, src, -1, source, nchars, NULL, NULL );
+		std::string retrnVal = source;
+		delete[] source;
+		return retrnVal;
+	}
+
+	std::wstring to_wstring( const std::string &src )
+	{
+		return to_wstring( src.c_str() );
+	}
+
+	std::string to_string( const std::wstring &src )
+	{
+		return to_string( src.c_str() );
+	}
+
 	std::wstring query::rows::get( int idx, std::wstring ) const
 	{
 		wchar_t const* Val = get( idx, (wchar_t const*)0 );
@@ -44,6 +66,7 @@ namespace sqlite3pp
 		}
 		return sqlite3_open16( dbname, &db_ );
 	}
+
 	database::database( wchar_t const* dbname, int flags, wchar_t const* vfs ) : db_( nullptr ), borrowing_( false )
 	{
 		if ( dbname )
@@ -57,6 +80,11 @@ namespace sqlite3pp
 	int database::execute( const std::string& sql )
 	{
 		return execute( sql.c_str() );
+	}
+	
+	int database::execute( const std::wstring& sql )
+	{
+		return execute( to_string(sql) );
 	}
 
 	statement::statement( database& db, wchar_t const* stmt ) : db_( db ), stmt_( 0 ), tail_( 0 )

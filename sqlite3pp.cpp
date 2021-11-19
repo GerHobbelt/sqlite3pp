@@ -70,7 +70,7 @@ namespace sqlite3pp
 
   database::database( char const* dbname, int flags, char const* vfs ) : db_( nullptr ), borrowing_( false )
   {
-    if (dbname) {
+	if (dbname) {
 		  auto rc = connect( dbname, flags, vfs );
 		  if ( rc != SQLITE_OK )
 			  throw database_error( "can't connect database" );
@@ -115,7 +115,7 @@ namespace sqlite3pp
 
   int database::connect(char const* dbname, int flags, char const* vfs)
   {
-    if (!borrowing_) {
+	if (!borrowing_) {
 		  disconnect();
 	  }
 
@@ -260,11 +260,11 @@ namespace sqlite3pp
 
   statement::statement(database& db, char const* stmt) : db_(db), stmt_(0), tail_(0)
   {
-    if (stmt) {
-      auto rc = prepare(stmt);
-      if (rc != SQLITE_OK)
-        throw database_error(db_);
-    }
+	if (stmt) {
+	  auto rc = prepare(stmt);
+	  if (rc != SQLITE_OK)
+		throw database_error(db_);
+	}
   }
 
   statement::~statement()
@@ -285,7 +285,7 @@ namespace sqlite3pp
 
   int statement::prepare_impl(char const* stmt)
   {
-    return sqlite3_prepare_v2(db_.db_, stmt, std::strlen(stmt), &stmt_, &tail_);
+	return sqlite3_prepare_v2(db_.db_, stmt, std::strlen(stmt), &stmt_, &tail_);
   }
 
   int statement::finish()
@@ -295,7 +295,7 @@ namespace sqlite3pp
 	  rc = finish_impl(stmt_);
 	  stmt_ = nullptr;
 	}
-    tail_ = nullptr;
+	tail_ = nullptr;
 
 	return rc;
   }
@@ -429,7 +429,7 @@ namespace sqlite3pp
 	auto rc = execute();
 	if (rc != SQLITE_OK) return rc;
 
-    char const* sql = tail_;
+	char const* sql = tail_;
 
 	while (std::strlen(sql) > 0) { // sqlite3_complete() is broken.
 	  sqlite3_stmt* old_stmt = stmt_;
@@ -442,7 +442,7 @@ namespace sqlite3pp
 
 	  if ((rc = execute()) != SQLITE_OK) return rc;
 
-      sql = tail_;
+	  sql = tail_;
 	}
 
 	return rc;

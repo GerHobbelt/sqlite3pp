@@ -118,6 +118,7 @@ namespace sqlite3pp
 	// Unicode support
 	explicit database( wchar_t const* dbname, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, const wchar_t* vfs = nullptr );
 	int connect( wchar_t const* dbname, int flags, const wchar_t* vfs = nullptr );
+	int execute( const std::wstring& sql );
 	int execute( const std::string& sql );
 #endif //SQLITE3PP_UNICODE
 	int connect( char const* dbname, int flags, const char* vfs = nullptr );
