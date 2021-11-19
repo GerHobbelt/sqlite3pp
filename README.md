@@ -1,15 +1,16 @@
-> #### ANNOUNCEMENTS
-> ##### Use files in `headeronly_src` directory. The files in `src` are exactly same but in the form of h/cpp files, which you need to compile and link with.
-> ##### `boost_src` is no longer maintained. Do not use unless you need to use pre-c++1x. It requires `boost` library.
-
-sqlite3pp
+sqlite3pp with UNICODE support and a template helper class
 =========
+
+This repository is a fork of sqlite3pp, and it includes addition code to add UNICODE support and a template helper class which makes it easy to create type safe classses related to tables and views.  The template class add iterator logic similar to the existing iterators in sqlite3pp.
 
 This library makes SQLite3 API more friendly to C++ users. It supports almost all of SQLite3 features using C++ classes such as database, command, query, and transaction. The query class supports iterator concept for fetching records.
 
-With ext::function class, it's also easy to use the sqlite3's functions and aggregations in C++.
+The source code is configured in *.cpp and *.h.  There is no header only support.
 
-# Usage
+# New Usage
+## database
+
+# Original Usage form sqlite3pp
 
 ## database
 ```cpp
