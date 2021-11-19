@@ -4,24 +4,26 @@
 #define SQLITE3PP_TEMPLATES_H
 #include "sqlite3pp.h"
 #include <vector>
+#include <string>
 
 namespace sqlite3pp
 {
   class Table_Base
   {
   public:
-	static void setGlobalDB( database &db_ );
+	  static void setGlobalDB( const std::string& db_filename );
+	  static void setGlobalDB( const std::wstring& db_filename );
   protected:
-	static database db; // To be used as global DB
-	sqlite3pp::database &m_db;
+	static sqlite3pp::database global_db; // To be used as global DB
   };
 
-  template <class T, class BT = T, class T2 = tstring>  // Having ability to change BT to a base class allows for merging queries
+  template <class T, class T2 = tstring, class BT = T>  // Having ability to change BT to a base class allows for merging queries
   class Table : public Table_Base
   {
 	  using DataType = BT;
 	  using VectType = std::vector<DataType>;
 	  VectType m_VectType;
+	  sqlite3pp::database &m_db;
 	  void PopulateVect( sqlite3pp::database &db, sqlite3pp::query &qry )
 	  {
 		  for ( auto q : qry )
@@ -42,10 +44,10 @@ namespace sqlite3pp
 		  PopulateVect( db, qry );
 	  }
   public:
-	  Table( T2 WhereClause = T2() ) :Table_Base( Table_Base::db ) { PrepareQuery( m_db, WhereClause ); }
-	  Table( sqlite3pp::database &db, T2 WhereClause = T2() ) :Table_Base( db ) {PrepareQuery( m_db, WhereClause );}
-	  Table( sqlite3pp::database &db, const VectType &VectTypes ) :Table_Base( db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
-	  Table( const VectType &VectTypes ) :Table_Base( Table_Base::db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
+	  Table( T2 WhereClause = T2() ) :m_db( global_db ) { PrepareQuery( m_db, WhereClause ); }
+	  Table( sqlite3pp::database &db, T2 WhereClause = T2() ) :m_db( db ) {PrepareQuery( m_db, WhereClause );}
+	  Table( sqlite3pp::database &db, const VectType &VectTypes ) :m_db( db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
+	  Table( const VectType &VectTypes ) :m_db( global_db ) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
 	  const VectType& Get() const { return m_VectType; }
 	  void Insert( const VectType& Data )
 	  {

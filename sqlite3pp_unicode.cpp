@@ -1,12 +1,12 @@
 ///////////////////////////////////////////////////////////////////////////
 // Additional functions to handle UNICODE support
 ///////////////////////////////////////////////////////////////////////////
-#include "sqlite3pp.h"
-
 // ToDo:  Find a portable way to check if UNICODE and to convert UTF8 to UTF16
 #include <windows.h>
 #include <stringapiset.h>
 #include <TCHAR.h>
+
+#include "sqlite3pp.h"
 
 namespace sqlite3pp
 {
