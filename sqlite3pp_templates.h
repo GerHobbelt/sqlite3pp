@@ -12,26 +12,43 @@ namespace sqlite3pp
 	std::wstring to_wstring( const char* src );
 	std::string to_string( const std::wstring &src );
 	std::wstring to_wstring( const std::string &src );
+	void setGlobalDB( const std::string& db_filename );
+	void setGlobalDB( const std::wstring& db_filename );
+	int Execute( const std::string& sql );
+	int Execute( const std::wstring& sql );
+	int Connect( char const* dbname, int flags, const char* vfs = nullptr );
+	int Connect( wchar_t const* dbname, int flags, const wchar_t* vfs = nullptr );
+	int Attach( char const* dbname, char const* name );
+	int Attach( wchar_t const* dbname, wchar_t const* name );
+	int Detach( char const* name );
+	int Detach( wchar_t const* name );
+	int Backup( char const* dbname, database& destdb, char const* destdbname, database::backup_handler h, int step_page = 5 );
+	int Backup( wchar_t const* dbname, database& destdb, wchar_t const* destdbname, database::backup_handler h, int step_page = 5 );
+	std::string GetDbErrMsg();
+	std::wstring GetDbErrMsgW();
+	int GetDbErr();
+	int GetDbExtErr();
+
 
 	class db_gbl
 	{
 	public:
-		static void setGlobalDB( const std::string& db_filename );
-		static void setGlobalDB( const std::wstring& db_filename );
-		static int Execute( const std::string& sql );
-		static int Execute( const std::wstring& sql );
-		static int Connect( char const* dbname, int flags, const char* vfs = nullptr );
-		static int Connect( wchar_t const* dbname, int flags, const wchar_t* vfs = nullptr );
-		static int Attach( char const* dbname, char const* name );
-		static int Attach( wchar_t const* dbname, wchar_t const* name );
-		static int Detach( char const* name );
-		static int Detach( wchar_t const* name );
-		static int Backup( char const* dbname, database& destdb, char const* destdbname, database::backup_handler h, int step_page = 5 );
-		static int Backup( wchar_t const* dbname, database& destdb, wchar_t const* destdbname, database::backup_handler h, int step_page = 5 );
-		static std::string GetErrMsg();
-		static std::wstring GetErrMsgW();
-		static int GetErr();
-		static int GetExtErr();
+		friend void setGlobalDB( const std::string& db_filename );
+		friend void setGlobalDB( const std::wstring& db_filename );
+		friend int Execute( const std::string& sql );
+		friend int Execute( const std::wstring& sql );
+		friend int Connect( char const* dbname, int flags, const char* vfs );
+		friend int Connect( wchar_t const* dbname, int flags, const wchar_t* vfs );
+		friend int Attach( char const* dbname, char const* name );
+		friend int Attach( wchar_t const* dbname, wchar_t const* name );
+		friend int Detach( char const* name );
+		friend int Detach( wchar_t const* name );
+		friend int Backup( char const* dbname, database& destdb, char const* destdbname, database::backup_handler h, int step_page);
+		friend int Backup( wchar_t const* dbname, database& destdb, wchar_t const* destdbname, database::backup_handler h, int step_page );
+		friend std::string GetDbErrMsg();
+		friend std::wstring GetDbErrMsgW();
+		friend int GetDbErr();
+		friend int GetDbExtErr();
 	protected:
 		static sqlite3pp::database global_db; // To be used as global DB
 	};
