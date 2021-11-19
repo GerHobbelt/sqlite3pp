@@ -1,7 +1,7 @@
 sqlite3pp with UNICODE support and a template helper class
 =========
 
-Note: The code implementation is inprogress, but what's listed in new usage is complete and functional.
+Note: The code implementation is inprogress, but what's listed in **New Usage** is complete and functional.
 
 This repository is a fork of sqlite3pp, and it includes addition code to add UNICODE support and a template helper class which makes it easy to create type safe classses related to tables and views.  The template class add iterator logic similar to the existing iterators in sqlite3pp.
 
@@ -10,7 +10,7 @@ This library makes SQLite3 API more friendly to C++ users. It supports almost al
 The source code is configured in *.cpp and *.h.  There is no header only support.
 
 # New Usage
-Developer's code only needs to include header "sqlite3pp_templates.h". An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
+Developer's code only needs to include header **"sqlite3pp_templates.h"**. An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
 ````
 #include "sqlite3pp_templates.h"
 using namespace sqlite3pp;
@@ -44,7 +44,7 @@ With the above class a table class can be declared and automatically populated w
 
 The same above code can be used with any number of generic table/view query classes, because the details on handling the table/view is in the class.
 
-The above class has a table called *FileExt* and it defines 3 fields (*Ext, PrgLangName, Notes*)
+The above class has a table called **FileExt** and it defines 3 fields (**Ext, PrgLangName, Notes**)
 
 
 
