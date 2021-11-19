@@ -1,6 +1,8 @@
 sqlite3pp with UNICODE support and a template helper class
 =========
 
+Note: The code implementation is inprogress, but what's listed in new usage is complete and functional.
+
 This repository is a fork of sqlite3pp, and it includes addition code to add UNICODE support and a template helper class which makes it easy to create type safe classses related to tables and views.  The template class add iterator logic similar to the existing iterators in sqlite3pp.
 
 This library makes SQLite3 API more friendly to C++ users. It supports almost all of SQLite3 features using C++ classes such as database, command, query, and transaction. The query class supports iterator concept for fetching records.
@@ -8,9 +10,45 @@ This library makes SQLite3 API more friendly to C++ users. It supports almost al
 The source code is configured in *.cpp and *.h.  There is no header only support.
 
 # New Usage
-## database
+Developer's code only needs to include header "sqlite3pp_templates.h". An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
+````
+#include "sqlite3pp_templates.h"
+using namespace sqlite3pp;
+````
 
-# Original Usage form sqlite3pp
+## database -- Setting global database variable
+````
+setGlobalDB(_T("my.db"));
+````
+
+## Template Usage
+Create a table/view query class which definds the table/view name and fields generically
+````
+struct FileExt  // A generic table/view query class/struct
+{
+	using Str_DataType = sqlite3pp::tstring;  //Defind the string type (std::string, std::wstring, std::tstring)
+	static Str_DataType GetTableName() { return _T("FileExt"); } // Specify the table or view name
+	Str_DataType Ext; Str_DataType PrgLangName; Str_DataType Notes; // Declare each field the query will use, and defind the type (int or Str_DataType)
+	static Str_DataType GetSelectNames() { return _T("Ext, PrgLangName, Notes"); } // Include each field name
+	Str_DataType GetValues() { return _T("'") + Ext + _T("', '") + PrgLangName + _T("', '") + Notes + _T("'"); } // Include each field name
+	template<class T> void GetStreamData( T q ) { q.getter() >> Ext >> PrgLangName >> Notes; } // Include each field name
+};
+````
+
+With the above class a table class can be declared and automatically populated with the following code:
+````
+	Table<FileExt> MyAutoPopulatedTable;
+	for ( auto t : MyAutoPopulatedTable )
+		std::wcout << t.GetValues() << std::endl;
+````
+
+The same above code can be used with any number of generic table/view query classes, because the details on handling the table/view is in the class.
+
+The above class has a table called *FileExt* and it defines 3 fields (*Ext, PrgLangName, Notes*)
+
+
+
+# Original Usage
 
 ## database
 ```cpp
