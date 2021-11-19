@@ -8,7 +8,17 @@ This library makes SQLite3 API more friendly to C++ users. It supports almost al
 The source code is configured in *.cpp and *.h.  There is no header only support.
 
 # New Usage
-## database
+Developer's code only needs to include header "sqlite3pp_templates.h". An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
+````
+#include "sqlite3pp_templates.h"
+using namespace sqlite3pp;
+````
+
+## database -- Setting global database variable
+````
+db_gbl::setGlobalDB(_T("my.db"));
+````
+
 
 # Original Usage form sqlite3pp
 
