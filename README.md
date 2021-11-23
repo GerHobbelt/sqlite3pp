@@ -15,9 +15,9 @@ This package contains all the files required to use SQLite3, SQLite3pp, and SQLi
 sqlite3pp::setGlobalDB(L"Exchange_€To$_database.db");
 sqlite3pp::Execute(_T("INSERT OR REPLACE INTO FileName VALUES ('") + sfileName + _T("', '") + sfileExt + _T("');"));
 SQLiteClassBuilder	createMyClasses(
-		"Exchange_€To$_database.db"									// Use UTF8 to open file.
-		, SQLiteClassBuilder::std_wstring_protected_members			// This option creates a class with std::wstring as the default string, and protected member variables.
-		, ""														// Set this to a specific table or view, in which one class is created, or set it to empty to create a class for each table and view in the database.
+		"Exchange_€To$_database.db"
+		, SQLiteClassBuilder::std_wstring_protected_members	// This option creates a class with std::wstring as the default string, and protected member variables.
+		, ""							// Set this to a specific table or view, in which one class is created, or set it to empty to create a class for each table and view in the database.
 	);
 ````
 ## Generic template Table class having the following features:
@@ -45,10 +45,10 @@ sqlite3pp::Table<sql_table_MyTableFoo> tbl;
 for ( auto row : tbl )											// (C++11) Range-based loop
 	std::cout << row.get_Wigets() << row.get_MyColumn() << row.get_AnotherFooColumn() << std::endl;
 
-for (auto row = tbl.begin(); row != tbl.end(); ++row)			// C++ style iteration
+for (auto row = tbl.begin(); row != tbl.end(); ++row)							// C++ style iteration
 	std::cout << row->get_Wigets() << row->get_MyColumn() << row->get_AnotherFooColumn() << std::endl;
 
-for (int row = 0; row < tbl.size(); ++row)						// C style iteration
+for (int row = 0; row < tbl.size(); ++row)								// C style iteration
 	std::cout << tbl[row].get_Wigets() << tbl[row].get_MyColumn() << tbl[row].get_AnotherFooColumn() << std::endl;
 ````
  * All sqlite3pp::Table objects can optionally share the same sqlite3pp::database, so the sqlite3pp::Table constructor doesn't have to take sqlite3pp::database input argument
