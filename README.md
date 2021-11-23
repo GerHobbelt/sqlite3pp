@@ -4,7 +4,7 @@ sqlite3pp_EZ
  * Template Table class
  * SQL Class Builder
 
-This repository is a fork of sqlite3pp, and it includes addition code to add UNICODE support, a template Table class and a SQLite class builder.
+This repository is a fork of sqlite3pp, and it includes additional code to add UNICODE support, a template Table class and a SQLite class builder.
 The sqlite3pp::Table class along with the sqlite3pp::SQLiteClassBuilder class allows C++ developers to use type safe variables assocaited with the table column types.
 
 This package contains all the files required to use SQLite3, SQLite3pp, and SQLite3pp_EZ.  Only minor modifications have been made to SQLite3 C code and SQLite3pp where needed for UNICODE support.  Then bulk of the sqlite3pp_EZ implementation is in sqlite3pp_EZ.h and sqlite3pp_EZ.cpp.
