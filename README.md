@@ -92,7 +92,7 @@ for (int row = 0; row < tbl.size(); ++row)						// C style iteration
 The source code is configured in *.cpp and *.h.  There is no header only support.
 
 # New Usage
-Developer's code only needs to include header **"sqlite3pp_templates.h"**. An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
+Developer's code only needs to include header **"sqlite3pp_ez.h"**. An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
 ````
 #include "sqlite3pp_ez.h"
 using namespace sqlite3pp;
