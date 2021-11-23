@@ -1,8 +1,13 @@
-sqlite3pp with UNICODE support, template helper class, and SQL class builder.
+sqlite3pp_EZ
 =========
+ * Unicode support
+ * Template Table class
+ * SQL Class Builder
 
 This repository is a fork of sqlite3pp, and it includes addition code to add UNICODE support, a template Table class and a SQLite class builder.
 The sqlite3pp::Table class along with the sqlite3pp::SQLiteClassBuilder class allows C++ developers to use type safe variables assocaited with the table column types.
+
+This package contains all the files required to use SQLite3, SQLite3pp, and SQLite3pp_EZ.  Only minor modifications have been made to SQLite3 C code and SQLite3pp where needed for UNICODE support.  Then bulk of the sqlite3pp_EZ implementation is in sqlite3pp_EZ.h and sqlite3pp_EZ.cpp.
 
 ## Unicode support.
  * Example:
@@ -89,7 +94,7 @@ The source code is configured in *.cpp and *.h.  There is no header only support
 # New Usage
 Developer's code only needs to include header **"sqlite3pp_templates.h"**. An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
 ````
-#include "sqlite3pp_templates.h"
+#include "sqlite3pp_ez.h"
 using namespace sqlite3pp;
 ````
 
@@ -101,7 +106,7 @@ setGlobalDB(_T("my.db"));
 ## Template Usage
 Create a table/view query class which definds the table/view name and fields generically
 ````
-struct FileExt  // A generic table/view query class/struct
+class FileExt  // A generic table/view query class
 {
 	using Str_DataType = sqlite3pp::tstring;  //Defind the string type (std::string, std::wstring, std::tstring)
 	static Str_DataType GetTableName() { return _T("FileExt"); } // Specify the table or view name
