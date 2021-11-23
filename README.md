@@ -11,7 +11,7 @@ This package contains all the files required to use SQLite3, SQLite3pp, and SQLi
 
 ## Unicode support.
  * Example:
-````
+````cpp
 sqlite3pp::setGlobalDB(L"Exchange_€To$_database.db");
 sqlite3pp::Execute(_T("INSERT OR REPLACE INTO FileName VALUES ('") + sfileName + _T("', '") + sfileExt + _T("');"));
 SQLiteClassBuilder	createMyClasses(
@@ -34,12 +34,12 @@ SQLiteClassBuilder	createMyClasses(
    * Table column of type DOUBLE, DECIMAL, or NUMERIC, have variable member of type double
  * Automatically populate the Table class with associated table
    * Example:
-````
+````cpp
 sqlite3pp::Table<sql_table_MyTableFoo> tbl;  // One line create and populates tbl with all content of table named MyTableFoo.
 ````
  * Can iterate each row using (C++11) Range-based loop, C+ stye iteration, or C style iteration
    * Example:
-````
+````cpp
 sqlite3pp::Table<sql_table_MyTableFoo> tbl;
 
 for ( auto row : tbl )											// (C++11) Range-based loop
@@ -93,19 +93,19 @@ The source code is configured in *.cpp and *.h.  There is no header only support
 
 # New Usage
 Developer's code only needs to include header **"sqlite3pp_ez.h"**. An optional global DB can be created, so that the DB variable doens't have to be pass to every class.
-````
+````cpp
 #include "sqlite3pp_ez.h"
 using namespace sqlite3pp;
 ````
 
 ## database -- Setting global database variable
-````
+````cpp
 setGlobalDB(_T("my.db"));
 ````
 
 ## Template Usage
 Create a table/view query class which definds the table/view name and fields generically
-````
+````cpp
 class FileExt  // A generic table/view query class
 {
 	using Str_DataType = sqlite3pp::tstring;  //Defind the string type (std::string, std::wstring, std::tstring)
@@ -118,7 +118,7 @@ class FileExt  // A generic table/view query class
 ````
 
 With the above class a table class can be declared and automatically populated with the following code:
-````
+````cpp
 	Table<FileExt> MyAutoPopulatedTable;
 	for ( auto t : MyAutoPopulatedTable )
 		std::wcout << t.GetValues() << std::endl;
@@ -445,22 +445,6 @@ sqlite3pp::query qry(
   "FROM foods");
 ```
 
-## loadable extension
-
-```cpp
-#define SQLITE3PP_LOADABLE_EXTENSION
-#include <sqlite3ppext.h>
-
-int sqlite3_extension_init(
-  sqlite3 *pdb,
-  char **pzErrMsg,
-  const sqlite3_api_routines *pApi) {
-  SQLITE_EXTENSION_INIT2(pApi);
-  sqlite3pp:database db(sqlite3pp::ext::borrow(pdb));
-  // pdb is not closed since db just borrows it.
-}
-
-```
 
 
 # See also
