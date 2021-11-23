@@ -119,9 +119,9 @@ class FileExt  // A generic table/view query class
 
 With the above class a table class can be declared and automatically populated with the following code:
 ````cpp
-	Table<FileExt> MyAutoPopulatedTable;
-	for ( auto t : MyAutoPopulatedTable )
-		std::wcout << t.GetValues() << std::endl;
+Table<FileExt> MyAutoPopulatedTable;
+for ( auto t : MyAutoPopulatedTable )
+	std::wcout << t.GetValues() << std::endl;
 ````
 
 The same above code can be used with any number of generic table/view query classes, because the details on handling the table/view is in the class.
