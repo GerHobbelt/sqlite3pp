@@ -5,9 +5,77 @@
 	The RegexAssistant source code is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License.
 	This source code is distributed in the hope that it will be useful,	but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 */
-
 ///////////////////////////////////////////////////////////////////////////
-// Summary: Additional functions to handle UNICODE support
+// Summary: sqlite3pp_EZ extends sqlite3pp by adding the following:
+//			1. Unicode support.
+//				Example:
+//					sqlite3pp::setGlobalDB(L"Exchange_€To$_database.db");
+//					sqlite3pp::Execute(_T("INSERT OR REPLACE INTO FileName VALUES ('") + sfileName + _T("', '") + sfileExt + _T("');"));
+//					SQLiteClassBuilder	createMyClasses(
+//							"Exchange_€To$_database.db"									// Use UTF8 to open file.
+//							, SQLiteClassBuilder::std_wstring_protected_members			// This option creates a class with std::wstring as the default string, and protected member variables.
+//							, ""														// Set this to a specific table or view, in which one class is created, or set it to empty to create a class for each table and view in the database.
+//						);
+//			2. Generic template Table class having the following features:
+//				a. Type safety for table column fields; 
+//					Table column of type INTEGER has variable member of type int
+//					Table column of type TEXT has variable member of type Table::T_STR, which is alias for the type of string defined by the class (std:string, std::wstring, sqlite3pp::tstring, etc...)
+//					Table column of type REAL has variable member of type double
+//					Table column of type FLOAT has variable member of type float
+//					Table column of type BOOLEAN has variable member of type bool
+//					Table column of type TINYINT has variable member of type byte
+//					Table column of type BIGINT has variable member of type __int64
+//					Table column of type UNSIGNED BIG INT has variable member of type unsigned __int64
+//					Table column of type DATE and DATETIME has variable member of type time_t
+//					Table column of type DOUBLE, DECIMAL, or NUMERIC, have variable member of type double
+//				b. Automatically populate the Table class with associated table
+//					Example:
+//						sqlite3pp::Table<sql_table_MyTableFoo> tbl;  // One line create and populates tbl with all content of table named MyTableFoo.
+//				c. Can iterate each row using (C++11) Range-based loop, C+ stye iteration, or C style iteration
+//					Example:
+//							sqlite3pp::Table<sql_table_MyTableFoo> tbl;
+//
+//							for ( auto row : tbl )											// (C++11) Range-based loop
+//								std::cout << row.get_Wigets() << row.get_MyColumn() << row.get_AnotherFooColumn() << std::endl;
+//
+//							for (auto row = tbl.begin(); row != tbl.end(); ++row)			// C++ style iteration
+//								std::cout << row->get_Wigets() << row->get_MyColumn() << row->get_AnotherFooColumn() << std::endl;
+//
+//							for (int row = 0; row < tbl.size(); ++row)						// C style iteration
+//								std::cout << tbl[row].get_Wigets() << tbl[row].get_MyColumn() << tbl[row].get_AnotherFooColumn() << std::endl;
+//				d. All sqlite3pp::Table objects can optionally share the same sqlite3pp::database, so the sqlite3pp::Table constructor doesn't have to take sqlite3pp::database input argument
+//			3. A SQLiteClassBuilder class which can be used to create a class for each table or view in a SQLite database.
+//				a. The class created by SQLiteClassBuilder is type safe IAW the column defined type.
+//				b. The created class can be used with the template Table class. Example:  sqlite3pp::Table<MyBuilderCreatedClass> tbl;
+//			4. For most common requirements, the default settings can be used. Unless otherwise specified, SQLiteClassBuilder uses predefined setting (std_string_protected_members) as the default settings.
+//			5. For advanced developers/usage:
+//				a. When creating a class, SQLiteClassBuilder has the following options:
+//					(1). Set created class to have a specific default string type (std:string, std::wstring, sqlite3pp::tstring, etc...)
+//					(2). Specifiy a subfolder in which to create headers for each class
+//					(3). Specify a prefix and/or a postfix for the header file name.
+//					(4). Specify if column associated member variables are public or protected.
+//					(5). Specify if class has a get_* function for each column associated member variable.
+//					(6). Specify if class has a set_* function for each column associated member variable.
+//					(7). Specify if class gets an associated ostream (operator<<) function.
+//					(8). Specify if class gets created with comments
+//				b. Developers can create a custom set of settings with class TblClassOptions, or use one of the 8 predefined settings.
+//				c. There are 8 predefined settings for common choices.  The following are just 3 of the 8.
+//					(1). std_string_protected_members (default)	= Creates a class that has member variables as protected, and it has get_* and set_* functions for each column associated variable. The default string type is std::string. String literals are define as-is. Example: foo = "some foo";
+//					(2). sql_tstring_minimal					= Creates a minimal class, having no comments, get_* functions, and no set_* functions. Member variables are public and the default string type is sqlite3pp::tstring. String literals are wrap with _T() macro. Example: foo = _T("some foo");
+//					(2). std_wstring_protected_members			= Creates protected member variables class with get_* and set_* functions. The default string type is std::wstring. String literals are prefixed with L. Example: foo = L"some foo";
+//			6. There are API's for using a single global sqlite3pp::database.  These API's are not associated with a class, and can be called directly. It
+//				. setGlobalDB(db_filename)
+//				. Execute(SQL_statment)
+//				. Connect(dbname, flags, vfs)
+//				. Attach(dbname,dbname)
+//				. Detach(dbname)
+//				. Backup(dbname, destdb,destdbname, backup_handler, step_page)
+//				. GetDbErrMsg()
+//				. GetDbErrMsgW()
+//				. GetDbErrNo()
+//				. GetDbExtErrNo()
+//				. getGlobalDB()
+//
 ///////////////////////////////////////////////////////////////////////////
 // ToDo:  Find a portable way to check if UNICODE and to convert UTF8 to UTF16
 
@@ -152,6 +220,11 @@ namespace sqlite3pp
 	// Added Global functions for global_db usage
 	///////////////////////////////////////////////////////////////////////////
 	database db_gbl::global_db;
+	const char db_gbl::TableArg_PreExecuteArg[] = "PreExecuteArg";
+	const char db_gbl::TableArg_WhereClauseArg[] = "WhereClauseArg";
+	const char db_gbl::TableArg_InsertArg[] = "InsertArg";
+	const char db_gbl::TableArg_DbFileNameArg[] = "DbFileNameArg";
+	const char db_gbl::TableArg_ValueArg[] = "ValueArg";
 
 	void setGlobalDB( const std::string& db_filename )
 	{
@@ -217,11 +290,11 @@ namespace sqlite3pp
 	{
 		return to_wstring(db_gbl::global_db.error_msg());
 	}
-	int GetDbErr()
+	int GetDbErrNo()
 	{
 		return db_gbl::global_db.error_code();
 	}
-	int GetDbExtErr()
+	int GetDbExtErrNo()
 	{
 		return db_gbl::global_db.extended_error_code();
 	}
@@ -259,13 +332,42 @@ namespace sqlite3pp
 	std::string SQLiteClassBuilder::GetType(const char* str)
 	{
 		const char* DefaultType = "Str_DataType";
+		unsigned __int64 foo = 343;
+		time_t  foo2 = 123;
 		if (!str) return DefaultType;
-		if (strcmp("INTEGER", str) == 0 || strcmp("INT", str) == 0 || strcmp("NUMERIC", str) == 0)
-			return "int";
-		if (strcmp("REAL", str) == 0 || strcmp("DECIMAL", str) == 0 || strcmp("FLOAT", str) == 0 || strcmp("DECIMAL", str) == 0 || strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0)
-			return "double";
+
+#ifndef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY // If defined convert types to Resulting Affinity
+		if (strcmp("TINYINT", str) == 0)
+			return "byte";
+		if (strcmp("FLOAT", str) == 0)
+			return "float";
 		if (strcmp("BOOLEAN", str) == 0)
 			return "bool";
+
+#ifndef SQLITE3PP_CONVERT_BIGINT_TO_INT
+		// ToDo: Add portable logic to handle big integer
+		if (strcmp("BIGINT", str) == 0)
+			return "__int64";
+		if (strcmp("UNSIGNED BIG INT", str) == 0)
+			return "unsigned __int64";
+#endif //SQLITE3PP_CONVERT_BIGINT_TO_INT
+
+#ifndef SQLITE3PP_CONVERT_DATETIME_TO_DOUBLE
+		if (strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0)
+			return "time_t";
+#endif //SQLITE3PP_CONVERT_DATETIME_TO_DOUBLE
+
+#ifndef SQLITE3PP_CONVERT_NATIVE_CHR_TO_DEFAULT
+		if (strncmp("NCHAR", str, 5) == 0 || strncmp("NVARCHAR", str, 8) == 0 || strncmp("NATIVE CHARACTER", str, 16) == 0)
+			return "std::wstring";
+#endif //SQLITE3PP_CONVERT_NATIVE_CHR_TO_DEFAULT
+
+#endif //SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+
+		if (strcmp("INTEGER", str) == 0 || strcmp("INT", str) == 0 || strcmp("TINYINT", str) == 0 || strcmp("SMALLINT", str) == 0 || strcmp("MEDIUMINTSMALLINT", str) == 0 || strcmp("BIGINT", str) == 0 || strcmp("UNSIGNED BIG INT", str) == 0 || strcmp("INT2", str) == 0 || strcmp("INT8", str) == 0)
+			return "int";
+		if (strcmp("REAL", str) == 0 || strcmp("DOUBLE", str) == 0 || strcmp("DOUBLE PRECISION", str) == 0 || strcmp("FLOAT", str) == 0 || strncmp("DECIMAL", str, 7) == 0 || strcmp("BOOLEAN", str) == 0 || strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0 || strcmp("NUMERIC", str) == 0)
+			return "double";
 		return DefaultType;
 	}
 	
@@ -302,7 +404,8 @@ namespace sqlite3pp
 	{
 		m_strtype = strtype;
 		const std::string OrgPrefix = m_strtype.header_prefix;
-		Table<sqlite_master> tbl(m_db, "where (type = 'table' or type = 'view') " + PostFixWhereClause);
+		using SQLiteMaster = Table<sqlite_master>;
+		SQLiteMaster tbl(m_db, SQLiteMaster::WhereClauseArg("where (type = 'table' or type = 'view') " + PostFixWhereClause));
 		for (auto t : tbl)
 		{
 			m_strtype.header_prefix = OrgPrefix + t.type + "_";
@@ -375,7 +478,7 @@ namespace sqlite3pp
 				myfile << ", which allows read-only access to protected member variables";
 			myfile << "." << std::endl;
 			for (auto c : columns)
-				myfile << "\tconst " << c.second << "& get_" << c.first << "() {return " << c.first << ";}" << std::endl;
+				myfile << "\tconst " << c.second << "& get_" << c.first << "() const {return " << c.first << ";}" << std::endl;
 		}
 
 		// Define set function for each data member variable.
