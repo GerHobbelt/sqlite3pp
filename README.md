@@ -28,10 +28,11 @@ SQLiteClassBuilder	createMyClasses(
    * Table column of type FLOAT has variable member of type float
    * Table column of type BOOLEAN has variable member of type bool
    * Table column of type TINYINT has variable member of type byte
+   * Table column of type DOUBLE, DECIMAL, or NUMERIC, have variable member of type double
+   * 
+   * Table column of type DATE and DATETIME has variable member of type time_t
    * Table column of type BIGINT has variable member of type __int64
    * Table column of type UNSIGNED BIG INT has variable member of type unsigned __int64
-   * Table column of type DATE and DATETIME has variable member of type time_t
-   * Table column of type DOUBLE, DECIMAL, or NUMERIC, have variable member of type double
  * Automatically populate the Table class with associated table
    * Example:
 ````cpp
