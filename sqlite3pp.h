@@ -57,9 +57,9 @@ namespace sqlite3pp
 #else
 	std::wstring to_wstring( const char* src );
 	#ifdef _INC_TCHAR
-	typedef std::basic_string<TCHAR> tstring;
+		typedef std::basic_string<TCHAR> tstring;
 	#else
-	typedef std::wstring tstring;
+		typedef std::wstring tstring;
 	#endif //_INC_TCHAR
 #endif //SQLITE3PP_NO_UNICODE	
 
@@ -81,8 +81,8 @@ namespace sqlite3pp
 	using DoublePrcsn = double;
 	using Double = double;
 	using Float = double;
-	using Blob = std::shared_ptr<std::vector<Tinyint> >;
-	using Clob = std::shared_ptr< std::basic_string<unsigned char> >;
+	using Blob = std::shared_ptr<std::vector<Tinyint> >;// Stores binary data
+	using Clob = std::shared_ptr< std::vector<char> >;	// Stores strings that can have multiple NULL terminators
 	struct Date	{std::time_t t;};
 	struct Datetime	{std::tm tm_struct;};
 	using Nchar = std::wstring;
