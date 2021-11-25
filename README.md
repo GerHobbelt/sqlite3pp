@@ -44,8 +44,8 @@ SQLiteClassBuilder	createMyClasses(
      * 	using Decimal = double;
      * 	using DoublePrcsn = double;
      * 	using Double = double;
-     * 	using Blob = std::shared_ptr<std::vector<Tinyint> >;
-     * 	using Clob = std::shared_ptr< std::basic_string<unsigned char> >;
+     * 	``using Blob = std::shared_ptr<std::vector<Tinyint> >;	// Stores binary data``
+     * 	``using Clob = std::shared_ptr< std::vector<char> >;	// Stores strings that can have multiple NULL terminators``
      * 	using Nchar = **std::wstring**;
      * 	using Nvarchar = **std::wstring**;
      * 	using Character = std::string;
