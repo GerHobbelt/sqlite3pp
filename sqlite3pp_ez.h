@@ -232,7 +232,7 @@ namespace sqlite3pp
 		);
 	public:
 		// This constructor is best to use when creating a header for all tables
-		SQLiteClassBuilder(const std::string& Db_filename
+		SQLiteClassBuilder(const std::string& Db_filename						// Only Required Field
 			, const StrOptions &stroptions = strOpt_std_string					// StrOptions is used to define the default string type.  Can be set to a custom define StrOptions, or to one of the predefined common options (strOpt_std_string, strOpt_std_wstring, strOpt_std_tstring, strOpt_sql_tstring)
 			, const MiscOptions &miscoptions = MiscOpt_max						// MiscOptions is used to define miscellaneous options.  Can be set to a custom define MiscOptions, or to one of the predefined common options (MiscOpt_max, MiscOpt_min, MiscOpt_var)
 			, const HeaderOpt &headeropt = HeaderDefaultOpt						// HeaderOpt is used to define the naming convention to use when creating the header file(s).
@@ -249,9 +249,9 @@ namespace sqlite3pp
 		) :m_db(Db_filename.c_str()), m_AppendTableToHeader(false){Init(TableOrView_name, PostFixWhereClause, stroptions, miscoptions, headeropt);}
 
 		// This constructor is best when crating a single header or no headers at all in the contructor. (When no headers are created by the constructor, the headers are created by explicitly calling member functions CreateHeader or CreateAllHeaders)
-		SQLiteClassBuilder(const std::string& Db_filename		// Only Required Field
+		SQLiteClassBuilder(const std::string& Db_filename		
 			, const std::string &PostFixWhereClause				// Used when creating multiple tables.  Can specify which tables/views to include.
-			, const std::string& TableOrView_name = ""			// If equal to "%CreateHeaderForAllTables%", a header for each table and view is created. If equal to table or view name, a single header for associated table or view is created. If empty or equal to "#NILL#", the constructor does not create any headers.
+			, const std::string& TableOrView_name				// If equal to "%CreateHeaderForAllTables%", a header for each table and view is created. If equal to table or view name, a single header for associated table or view is created. If empty or equal to "#NILL#", the constructor does not create any headers.
 			, const StrOptions &stroptions = strOpt_std_string	// StrOptions is used to define the default string type.  Can be set to a custom define StrOptions, or to one of the predefined common options (strOpt_std_string, strOpt_std_wstring, strOpt_std_tstring, strOpt_sql_tstring)
 			, const MiscOptions &miscoptions = MiscOpt_max		// MiscOptions is used to define miscellaneous options.  Can be set to a custom define MiscOptions, or to one of the predefined common options (MiscOpt_max, MiscOpt_min, MiscOpt_var)
 			, const HeaderOpt &headeropt = HeaderDefaultOpt		// HeaderOpt is used to define the naming convention to use when creating the header file(s).

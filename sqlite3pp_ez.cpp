@@ -242,7 +242,7 @@ namespace sqlite3pp
 	{
 		const char* DefaultType = "StrType";
 		if (!str) return DefaultType;
-		// There's no pratical method for handling blob or clob other than the Blob and Clob type, so don't even include them  in an option to declare them any other way.
+		// There's no practical method for handling blob or clob other than the Blob and Clob type, so don't even include them  in an option to declare them any other way.
 		if (strcmp("BLOB", str) == 0)
 			return "Blob";
 		if (strcmp("CLOB", str) == 0)	
