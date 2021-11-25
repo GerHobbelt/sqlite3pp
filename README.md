@@ -21,18 +21,33 @@ SQLiteClassBuilder	createMyClasses(
 	);
 ````
 ## Generic template Table class having the following features:
- * Type safety for table column fields; 
-   * Table column of type INTEGER has variable member of type int
+ * Type safety for table column fields, include additional types added by SQLite3.
+   * Table column of type INTEGER has variable member of type Integer which is an alias for type int.
    * Table column of type TEXT has variable member of type Table::T_STR, which is alias for the type of string defined by the class (std:string, std::wstring, sqlite3pp::tstring, etc...)
-   * Table column of type REAL has variable member of type double
-   * Table column of type FLOAT has variable member of type float
-   * Table column of type BOOLEAN has variable member of type bool
-   * Table column of type TINYINT has variable member of type byte
-   * Table column of type DOUBLE, DECIMAL, or NUMERIC, have variable member of type double
-   * 
-   * Table column of type DATE and DATETIME has variable member of type time_t
-   * Table column of type BIGINT has variable member of type __int64
-   * Table column of type UNSIGNED BIG INT has variable member of type unsigned __int64
+   * ... REAL has variable member of type Real, which is an alias for double.
+   * ... FLOAT has variable member of type Float, which is an alias for double.
+   * ... BOOLEAN has variable member of type Bolean, which is an alias for bool.
+   * ... TINYINT has variable member of type Tinyint, which is an alias for unisigned char.
+   * ... DATE is of type Date which has a time_t member variable.
+   * ... DATETIME is of type Datetime, which has an std::tm member variable.
+   * ... BIGINT is typed to **long long int** which is equevalent to type __int64, and it's a more portable type
+   * ... UNSIGNED BIG INT is typed to  **unsigned long long int**
+   * The following types are also supported:
+     * 	using Int = int;
+     * 	using Int2 = int;
+     * 	using Int8 = int;
+     * 	using Smallint = short int;
+     * 	using Mediumint = int;
+     * 	sing Numeric = double;
+     * 	using Decimal = double;
+     * 	using DoublePrcsn = double;
+     * 	using Double = double;
+     * 	using Blob = std::shared_ptr<std::vector<Tinyint> >;
+     * 	using Clob = std::shared_ptr< std::basic_string<unsigned char> >;
+     * 	using Nchar = std::wstring;
+     * 	using Nvarchar = std::wstring;
+     * 	using Character = std::string;
+     * 	using Varchar = std::string;
  * Automatically populate the Table class with associated table
    * Example:
 ````cpp
