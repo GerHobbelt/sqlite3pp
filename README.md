@@ -1,6 +1,8 @@
 sqlite3pp_EZ
 =========
  * Unicode support
+ * Support for all new SQLite3 sub types
+ * Supports correct fetching DB Date and Datetime types 
  * Template Table class
  * SQL Class Builder
 
