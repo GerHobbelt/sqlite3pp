@@ -4,84 +4,9 @@
 	Copyright (C) 2021 David Maisonave (www.axter.com)
 	The RegexAssistant source code is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License.
 	This source code is distributed in the hope that it will be useful,	but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-*/
-///////////////////////////////////////////////////////////////////////////
-// Summary: sqlite3pp_EZ extends sqlite3pp by adding the following:
-//			1. Unicode support.
-//				Example:
-//					sqlite3pp::setGlobalDB(L"Exchange_€To$_database.db");
-//					sqlite3pp::Execute(_T("INSERT OR REPLACE INTO FileName VALUES ('") + sfileName + _T("', '") + sfileExt + _T("');"));
-//					SQLiteClassBuilder	createMyClasses(
-//							"Exchange_€To$_database.db"									// Use UTF8 to open file.
-//							, SQLiteClassBuilder::std_wstring_protected_members			// This option creates a class with std::wstring as the default string, and protected member variables.
-//							, ""														// Set this to a specific table or view, in which one class is created, or set it to empty to create a class for each table and view in the database.
-//						);
-//			2. Generic template Table class having the following features:
-//				a. Type safety for table column fields; 
-//					Table column of type INTEGER has variable member of type int
-//					Table column of type TEXT has variable member of type Table::T_STR, which is alias for the type of string defined by the class (std:string, std::wstring, sqlite3pp::tstring, etc...)
-//					Table column of type REAL has variable member of type double
-//					Table column of type FLOAT has variable member of type float
-//					Table column of type BOOLEAN has variable member of type bool
-//					Table column of type TINYINT has variable member of type byte
-//					Table column of type BIGINT has variable member of type __int64
-//					Table column of type UNSIGNED BIG INT has variable member of type unsigned __int64
-//					Table column of type DATE and DATETIME has variable member of type time_t
-//					Table column of type DOUBLE, DECIMAL, or NUMERIC, have variable member of type double
-//				b. Automatically populate the Table class with associated table
-//					Example:
-//						sqlite3pp::Table<sql_table_MyTableFoo> tbl;  // One line create and populates tbl with all content of table named MyTableFoo.
-//				c. Can iterate each row using (C++11) Range-based loop, C+ stye iteration, or C style iteration
-//					Example:
-//							sqlite3pp::Table<sql_table_MyTableFoo> tbl;
-//
-//							for ( auto row : tbl )											// (C++11) Range-based loop
-//								std::cout << row.get_Wigets() << row.get_MyColumn() << row.get_AnotherFooColumn() << std::endl;
-//
-//							for (auto row = tbl.begin(); row != tbl.end(); ++row)			// C++ style iteration
-//								std::cout << row->get_Wigets() << row->get_MyColumn() << row->get_AnotherFooColumn() << std::endl;
-//
-//							for (int row = 0; row < tbl.size(); ++row)						// C style iteration
-//								std::cout << tbl[row].get_Wigets() << tbl[row].get_MyColumn() << tbl[row].get_AnotherFooColumn() << std::endl;
-//				d. All sqlite3pp::Table objects can optionally share the same sqlite3pp::database, so the sqlite3pp::Table constructor doesn't have to take sqlite3pp::database input argument
-//			3. A SQLiteClassBuilder class which can be used to create a class for each table or view in a SQLite database.
-//				a. The class created by SQLiteClassBuilder is type safe IAW the column defined type.
-//				b. The created class can be used with the template Table class. Example:  sqlite3pp::Table<MyBuilderCreatedClass> tbl;
-//			4. For most common requirements, the default settings can be used. Unless otherwise specified, SQLiteClassBuilder uses predefined setting (std_string_protected_members) as the default settings.
-//			5. For advanced developers/usage:
-//				a. When creating a class, SQLiteClassBuilder has the following options:
-//					(1). Set created class to have a specific default string type (std:string, std::wstring, sqlite3pp::tstring, etc...)
-//					(2). Specifiy a subfolder in which to create headers for each class
-//					(3). Specify a prefix and/or a postfix for the header file name.
-//					(4). Specify if column associated member variables are public or protected.
-//					(5). Specify if class has a get_* function for each column associated member variable.
-//					(6). Specify if class has a set_* function for each column associated member variable.
-//					(7). Specify if class gets an associated ostream (operator<<) function.
-//					(8). Specify if class gets created with comments
-//				b. Developers can create a custom set of settings with class TblClassOptions, or use one of the 8 predefined settings.
-//				c. There are 8 predefined settings for common choices.  The following are just 3 of the 8.
-//					(1). std_string_protected_members (default)	= Creates a class that has member variables as protected, and it has get_* and set_* functions for each column associated variable. The default string type is std::string. String literals are define as-is. Example: foo = "some foo";
-//					(2). sql_tstring_minimal					= Creates a minimal class, having no comments, get_* functions, and no set_* functions. Member variables are public and the default string type is sqlite3pp::tstring. String literals are wrap with _T() macro. Example: foo = _T("some foo");
-//					(2). std_wstring_protected_members			= Creates protected member variables class with get_* and set_* functions. The default string type is std::wstring. String literals are prefixed with L. Example: foo = L"some foo";
-//			6. There are API's for using a single global sqlite3pp::database.  These API's are not associated with a class, and can be called directly. It
-//				. setGlobalDB(db_filename)
-//				. Execute(SQL_statment)
-//				. Connect(dbname, flags, vfs)
-//				. Attach(dbname,dbname)
-//				. Detach(dbname)
-//				. Backup(dbname, destdb,destdbname, backup_handler, step_page)
-//				. GetDbErrMsg()
-//				. GetDbErrMsgW()
-//				. GetDbErrNo()
-//				. GetDbExtErrNo()
-//				. getGlobalDB()
-//
-///////////////////////////////////////////////////////////////////////////
-// ToDo:  Find a portable way to check if UNICODE and to convert UTF8 to UTF16
 
-/*
-	Usage Instructions:
-
+	For usage examples see  https://github.com/David-Maisonave/sqlite3pp_EZ
+							or sqlite3pp_ez.h
 */
 #include <windows.h>
 #include <stringapiset.h>
@@ -92,6 +17,7 @@
 #include <string>
 #include <fstream>
 #include <direct.h>
+#include <cassert>
 
 namespace sqlite3pp
 {
@@ -130,20 +56,6 @@ namespace sqlite3pp
 	std::string to_string( const std::wstring &src )
 	{
 		return to_string( src.c_str() );
-	}
-
-	std::wstring query::rows::get( int idx, std::wstring ) const
-	{
-		wchar_t const* Val = get( idx, (wchar_t const*)0 );
-		if ( !Val )
-			return  std::wstring();
-
-		//int Test = IS_TEXT_UNICODE_SIGNATURE;// IS_TEXT_UNICODE_ASCII16;
-		if ( ::IsTextUnicode( Val, static_cast<int>(wcslen( Val )), NULL ) )
-			return Val;
-
-		const char* s = (char*)(Val);
-		return to_wstring( s );
 	}
 
 	int database::connect( wchar_t const * dbname, int flags, const wchar_t * vfs )
@@ -198,16 +110,11 @@ namespace sqlite3pp
 	{
 		union
 		{
-			wchar_t const** s;
+			char const** a;
 			void const ** v;
-		}myw2v = {&wcstail_};
+		}myw2v = {&tail_ };
 		int rc = sqlite3_prepare16_v2( db_.db_, stmt, static_cast<int>(std::wcslen( stmt )), &stmt_, myw2v.v );
 		return rc;
-	}
-
-	wchar_t const* query::rows::get( int idx, wchar_t const* ) const
-	{
-		return reinterpret_cast<wchar_t const*>(sqlite3_column_text( stmt_, idx ));
 	}
 
 	query::query( database& db, wchar_t const* stmt ) : statement( db, stmt )
@@ -303,17 +210,17 @@ namespace sqlite3pp
 	class sqlite_master
 	{
 	public:
-		using Str_DataType = std::string;
-		static Str_DataType getTableName() { return  "sqlite_master"; }
-		static Str_DataType getColumnNames() { return  "type, name, tbl_name, rootpage, sql"; }
+		using StrType = std::string;
+		static StrType getTableName() { return  "sqlite_master"; }
+		static StrType getColumnNames() { return  "type, name, tbl_name, rootpage, sql"; }
 		template<class T> void getStreamData(T q) { q.getter() >> type >> name >> tbl_name >> rootpage >> sql; }
 		static int getColumnCount() { return 5; }
 	public:
-		Str_DataType type;
-		Str_DataType name;
-		Str_DataType tbl_name;
-		Str_DataType rootpage;
-		Str_DataType sql;
+		StrType type;
+		StrType name;
+		StrType tbl_name;
+		StrType rootpage;
+		StrType sql;
 	};
 
 	// Create a class having protected member variables, and a get_* and set_* function for each column in the table/view
@@ -331,43 +238,46 @@ namespace sqlite3pp
 
 	std::string SQLiteClassBuilder::GetType(const char* str)
 	{
-		const char* DefaultType = "Str_DataType";
-		unsigned __int64 foo = 343;
-		time_t  foo2 = 123;
+		const char* DefaultType = "StrType";
 		if (!str) return DefaultType;
 
-#ifndef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY // If defined convert types to Resulting Affinity
-		if (strcmp("TINYINT", str) == 0)
-			return "byte";
-		if (strcmp("FLOAT", str) == 0)
-			return "float";
-		if (strcmp("BOOLEAN", str) == 0)
-			return "bool";
-
-#ifndef SQLITE3PP_CONVERT_BIGINT_TO_INT
-		// ToDo: Add portable logic to handle big integer
-		if (strcmp("BIGINT", str) == 0)
-			return "__int64";
-		if (strcmp("UNSIGNED BIG INT", str) == 0)
-			return "unsigned __int64";
-#endif //SQLITE3PP_CONVERT_BIGINT_TO_INT
-
-#ifndef SQLITE3PP_CONVERT_DATETIME_TO_DOUBLE
-		if (strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0)
-			return "time_t";
-#endif //SQLITE3PP_CONVERT_DATETIME_TO_DOUBLE
-
-#ifndef SQLITE3PP_CONVERT_NATIVE_CHR_TO_DEFAULT
-		if (strncmp("NCHAR", str, 5) == 0 || strncmp("NVARCHAR", str, 8) == 0 || strncmp("NATIVE CHARACTER", str, 16) == 0)
-			return "std::wstring";
-#endif //SQLITE3PP_CONVERT_NATIVE_CHR_TO_DEFAULT
-
-#endif //SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
-
+#ifdef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY // If defined convert types to Resulting Affinity (int, double, or StrType)
 		if (strcmp("INTEGER", str) == 0 || strcmp("INT", str) == 0 || strcmp("TINYINT", str) == 0 || strcmp("SMALLINT", str) == 0 || strcmp("MEDIUMINTSMALLINT", str) == 0 || strcmp("BIGINT", str) == 0 || strcmp("UNSIGNED BIG INT", str) == 0 || strcmp("INT2", str) == 0 || strcmp("INT8", str) == 0)
 			return "int";
 		if (strcmp("REAL", str) == 0 || strcmp("DOUBLE", str) == 0 || strcmp("DOUBLE PRECISION", str) == 0 || strcmp("FLOAT", str) == 0 || strncmp("DECIMAL", str, 7) == 0 || strcmp("BOOLEAN", str) == 0 || strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0 || strcmp("NUMERIC", str) == 0)
 			return "double";
+#else  // Use SQLite3 sub types and use type names
+		if (strcmp("INTEGER", str) == 0)				return "Integer";
+		if (strcmp("INT", str) == 0)					return "Int";
+		if (strcmp("INT2", str) == 0)					return "Int2";
+		if (strcmp("INT8", str) == 0)					return "Int8";
+		if (strcmp("TINYINT", str) == 0)				return "Tinyint";
+		if (strcmp("SMALLINT", str) == 0)				return "Smallint";
+		if (strcmp("MEDIUMINTSMALLINT", str) == 0)		return "Mediumint";
+		if (strcmp("BOOLEAN", str) == 0)				return "Boolean";
+		if (strcmp("BIGINT", str) == 0)					return "Bigint";
+		if (strcmp("UNSIGNED BIG INT", str) == 0)		return "UBigint";
+		if (strcmp("DATE", str) == 0)					return "Date";
+		if (strcmp("DATETIME", str) == 0)				return "Datetime";
+		if (strcmp("NUMERIC", str) == 0)				return "Numeric";
+		if (strncmp("DECIMAL", str, 7) == 0)			return "Decimal";
+		if (strcmp("REAL", str) == 0)					return "Real";
+		if (strcmp("DOUBLE PRECISION", str) == 0)		return "DoublePrcsn";
+		if (strcmp("DOUBLE", str) == 0)					return "Double";
+		if (strcmp("FLOAT", str) == 0)					return "Float";
+		if (strcmp("BLOB", str) == 0)					return "Blob";
+		if (strcmp("CLOB", str) == 0)					return "Clob";
+
+		// String types
+		if (strcmp("TEXT", str) == 0)					return "ST::Text";
+		if (strncmp("CHARACTER", str, 9) == 0)			return "Character";
+		if (strncmp("VARYING CHARACTER", str, 17) == 0
+			|| strncmp("VARCHAR", str, 7) == 0)			return "Varchar";
+		if (strncmp("NATIVE CHARACTER", str, 16) == 0
+			|| strncmp("NCHAR", str, 5) == 0)			return "Nchar";
+		if (strncmp("NVARCHAR", str, 8) == 0)			return "Nvarchar";
+#endif //SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+
 		return DefaultType;
 	}
 	
@@ -446,15 +356,15 @@ namespace sqlite3pp
 
 		////////////////////////////////////////////////////////////////////////////////////////////
 		// Create Table/View class, and create a define type for strings
-		myfile << "\nclass " << ClassName << "\n{\npublic:" << std::endl;
-		myfile << "\tusing Str_DataType = " << m_strtype.str_type << ";" << std::endl;
+		myfile << "\nclass " << ClassName << ": public sqlite3pp::db_gbl\n{\npublic:" << std::endl;
+		myfile << "\tusing StrType = " << m_strtype.str_type << ";\n\tusing ST = StrTypes<StrType>;" << std::endl;
 
 		if (!m_strtype.exclude_comments)
 			myfile << "\n\t// getTableName, getColumnNames, and getStreamData are required for sqlite3pp::Table template class" << std::endl;
 		// Create getTableName member function. It's needed for sqlite3pp::Table template class
-		myfile << "\tstatic Str_DataType getTableName() { return " << m_strtype.str_pre << " \"" << TableName << "\" " << m_strtype.str_post << "; }" << std::endl;
+		myfile << "\tstatic StrType getTableName() { return " << m_strtype.str_pre << " \"" << TableName << "\" " << m_strtype.str_post << "; }" << std::endl;
 		// Create getColumnNames member function. It's needed for sqlite3pp::Table template class
-		myfile << "\tstatic Str_DataType getColumnNames() { return " << m_strtype.str_pre << " \"";
+		myfile << "\tstatic StrType getColumnNames() { return " << m_strtype.str_pre << " \"";
 		for (auto c : columns_with_comma)
 			myfile << c.second << c.first;
 		myfile << "\"" << m_strtype.str_post << "; }" << std::endl;
@@ -506,7 +416,7 @@ namespace sqlite3pp
 			// Declare operator<< friend
 			myfile << "\ttemplate<class T> friend T& operator<<(T& os, const " << ClassName << "& t);" << std::endl;
 			// Create getDelimiter member function. It's needed for operator<<
-			myfile << "\tstatic Str_DataType getDelimiter() { return " << m_strtype.str_pre << " \"" << m_strtype.delimiter << "\" " << m_strtype.str_post << "; }" << std::endl;
+			myfile << "\tstatic StrType getDelimiter() { return " << m_strtype.str_pre << " \"" << m_strtype.delimiter << "\" " << m_strtype.str_post << "; }" << std::endl;
 		}
 
 
@@ -521,7 +431,7 @@ namespace sqlite3pp
 			////////////////////////////////////////////////////////////////////////////////////////////
 			// Create associated opereator<<
 			myfile << "template<class T> T& operator<<(T& os, const " << ClassName << "& t)\n{" << std::endl;
-			myfile << "\tstatic const " << ClassName << "::Str_DataType delimiter = t.getDelimiter();" << std::endl;
+			myfile << "\tstatic const " << ClassName << "::StrType delimiter = t.getDelimiter();" << std::endl;
 			myfile << "\tos";
 			std::string delimiter_tmp;
 			for (auto c : columns)
@@ -530,7 +440,7 @@ namespace sqlite3pp
 				if (delimiter_tmp.empty())
 					delimiter_tmp = " << delimiter";
 			}
-			myfile << ";\n\treturn os;\n};" << std::endl << std::endl;
+			myfile << ";\n\treturn os;\n}" << std::endl << std::endl;
 			////////////////////////////////////////////////////////////////////////////////////////////
 		}
 
@@ -541,4 +451,209 @@ namespace sqlite3pp
 		return true;
 	}
 
+	// Additional implementation for SQLite3pp
+#ifndef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+
+#ifndef SQLITE3PP_NO_UNICODE
+	wchar_t const* query::rows::get(int idx, wchar_t const*) const
+	{
+		return reinterpret_cast<wchar_t const*>(sqlite3_column_text16(stmt_, idx));
+	}
+
+	std::wstring query::rows::get(int idx, const std::wstring&) const
+	{
+		std::wstring value;
+		const char * strtype = sqlite3_column_decltype(stmt_, idx);
+		wchar_t const* Val = get(idx, (wchar_t const*)0);
+#ifndef SQLITE3PP_ALLOW_NULL_STRING_RETURN
+		if (!Val)
+			return value;
+#endif  // !SQLITE3PP_ALLOW_NULL_STRING_RETURN
+
+		if (strcmp(strtype, "TEXT") == 0 || strncmp("CHARACTER", strtype, 9) == 0 || strncmp("VARYING CHARACTER", strtype, 17) == 0 || strncmp("VARCHAR", strtype, 7) == 0)
+			value = to_wstring((char*)(Val));
+		else if ( strncmp("NCHAR", strtype, 5) == 0 || strncmp("NVARCHAR", strtype, 8) == 0 || strncmp("NATIVE CHARACTER", strtype, 16) == 0)
+			value = Val;
+		else
+		{
+			assert(0);// Code should NOT get here.  If it does something went wrong.
+			value = to_wstring((char*)(Val)); // Handle it gracefully in release mode.
+		}
+
+		return value; 
+	}
+
+#endif// !SQLITE3PP_NO_UNICODE
+
+	Blob query::rows::get(int idx, const Blob&) const
+	{
+		const int data_len = column_bytes(idx);
+		const Tinyint* ptr = static_cast<const Tinyint*>(sqlite3_column_blob(stmt_, idx));
+		Blob data(new std::vector<Tinyint>(ptr, ptr + data_len));
+		return data;
+	}
+
+	Clob query::rows::get(int idx, const Clob&) const
+	{
+		const int data_len = column_bytes(idx);
+		const unsigned char* ptr = static_cast<const unsigned char*>(sqlite3_column_blob(stmt_, idx));
+		Clob data(new std::basic_string<unsigned char>(ptr, ptr + data_len));
+		return data;
+	}
+
+	Tinyint query::rows::get(int idx, const Tinyint&) const
+	{
+		return static_cast<Tinyint>(get(idx, int()));
+	}
+
+	Smallint query::rows::get(int idx, const Smallint&) const
+	{
+		return static_cast<Smallint>(get(idx, int()));
+	}
+
+	Boolean query::rows::get(int idx, const Boolean&) const
+	{
+		return static_cast<Boolean>(get(idx, int()));
+	}
+
+	UBigint query::rows::get(int idx, const UBigint&) const
+	{
+		return static_cast<UBigint>(sqlite3_column_int64(stmt_, idx));
+	}
+
+	Date query::rows::get(int idx, const Date&) const
+	{
+		const char* s = reinterpret_cast<const char*>(sqlite3_column_text(stmt_, idx));
+		std::tm d = { 0 };
+		Date data = { 0 };
+		int rc = sscanf_s(s, "%d-%d-%d", &d.tm_year, &d.tm_mon, &d.tm_mday);
+		if (rc < 1 || !d.tm_mday)
+			return data;
+		if (d.tm_year > 1900)
+		{
+			d.tm_year -= 1900;
+			d.tm_mon -= 1;
+		}
+		data.t = mktime(&d);
+		if (data.t == -1)
+			return Date();
+		return data;
+	}
+
+	Datetime query::rows::get(int idx, const Datetime&) const
+	{
+		Datetime data = { 0 };
+		const char* s = reinterpret_cast<const char*>(sqlite3_column_text(stmt_, idx));
+		int rc = sscanf_s(s, "%d-%d-%d %d:%d:%d", &data.tm_struct.tm_year, &data.tm_struct.tm_mon, &data.tm_struct.tm_mday, &data.tm_struct.tm_hour, &data.tm_struct.tm_min, &data.tm_struct.tm_sec);
+		if (rc < 1 || !data.tm_struct.tm_mday)
+		{
+			return Datetime();
+		}
+
+		if (data.tm_struct.tm_year > 1900)
+		{
+			data.tm_struct.tm_year -= 1900;
+			data.tm_struct.tm_mon -= 1;
+		}
+		return data;
+	}
+
+	std::wostream& operator<<(std::wostream& os, const Character& t)
+	{
+		os << to_wstring(t);
+		return os;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const Nchar& t)
+	{
+		os << to_string(t);
+		return os;
+	}
+
+	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Blob& t)
+	{
+		std::string data(t->data(), t->data() + t->size());
+		std::wstring wdata = to_wstring(data);
+		os.write(wdata.c_str(), wdata.size());
+		return os;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Blob& t)
+	{
+		const char* ptr = (const char*)t->data();
+		os.write(ptr, t->size());
+		return os;
+	}
+
+	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Clob& t)
+	{
+		std::string data(t->data(), t->data() + t->size());
+		std::wstring wdata = to_wstring(data);
+		os.write(wdata.c_str(), wdata.size());
+		return os;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Clob& t)
+	{
+		const char* ptr = (const char*)t->data();
+		os.write(ptr, t->size());
+		return os;
+	}
+
+	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Datetime& t)
+	{
+		if (t.tm_struct.tm_mday)
+		{
+			wchar_t buf[256] = { 0 };
+			wcsftime(buf, sizeof(buf), L"%Y-%m-%d %H:%M:%S", &t.tm_struct);
+			os << buf;
+		}
+		else
+			os << L"0000-00-00 00:00:00";
+		return os;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Datetime& t)
+	{
+		if (t.tm_struct.tm_mday)
+		{
+			char buf[256] = { 0 };
+			strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &t.tm_struct);
+			os << buf;
+		}
+		else
+			os << "0000-00-00 00:00:00";
+		return os;
+	}
+
+	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Date& t)
+	{
+		if (t.t > 0)
+		{
+			wchar_t buf[256] = { 0 };
+			std::tm tm_struct = { 0 };
+			gmtime_s(&tm_struct, &t.t);
+			wcsftime(buf, sizeof(buf), L"%Y-%m-%d", &tm_struct);
+			os << buf;
+		}
+		else
+			os << L"0000-00-00";
+		return os;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Date& t)
+	{
+		if (t.t > 0)
+		{
+			char buf[256] = { 0 };
+			std::tm tm_struct = { 0 };
+			gmtime_s(&tm_struct, &t.t);
+			strftime(buf, sizeof(buf), "%Y-%m-%db", &tm_struct);
+			os << buf;
+		}
+		else
+			os << "0000-00-00";
+		return os;
+	}
+#endif// !SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
 };

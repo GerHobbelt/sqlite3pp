@@ -38,6 +38,9 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <vector>
+#include <ctime>
+#include <memory>
 
 #ifdef SQLITE3PP_LOADABLE_EXTENSION
 #include <sqlite3ext.h>
@@ -46,21 +49,49 @@ SQLITE_EXTENSION_INIT1
 	#include "sqlite3.h"
 #endif
 
-#ifndef SQLITE3PP_NO_UNICODE
-	#define SQLITE3PP_UNICODE
-#endif //SQLITE3PP_NO_UNICODE
-
 
 namespace sqlite3pp
 {
-#ifdef SQLITE3PP_UNICODE
+#ifdef SQLITE3PP_NO_UNICODE
+	typedef std::string tstring;
+#else
 	std::wstring to_wstring( const char* src );
 	#ifdef _INC_TCHAR
 	typedef std::basic_string<TCHAR> tstring;
 	#else
 	typedef std::wstring tstring;
 	#endif //_INC_TCHAR
-#endif //SQLITE3PP_UNICODE	
+#endif //SQLITE3PP_NO_UNICODE	
+
+#ifndef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+	// SQLite3 types (Excluding string types)
+	using Integer = int;
+	using Int = int;
+	using Int2 = int;
+	using Int8 = int;
+	using Tinyint = unsigned char;
+	using Smallint = short int;
+	using Mediumint = int;
+	using Boolean = bool;
+	using Bigint = long long int;
+	using UBigint = unsigned long long int;
+	using Numeric = double;
+	using Decimal = double;
+	using Real = double;
+	using DoublePrcsn = double;
+	using Double = double;
+	using Float = double;
+	using Blob = std::shared_ptr<std::vector<Tinyint> >;
+	using Clob = std::shared_ptr< std::basic_string<unsigned char> >;
+	struct Date	{std::time_t t;};
+	struct Datetime	{std::tm tm_struct;};
+	using Nchar = std::wstring;
+	using Nvarchar = std::wstring;
+	using Character = std::string;
+	using Varchar = std::string;
+	using TEXT = tstring;
+#endif //!SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY	
+
   class database;
 
   namespace ext
@@ -114,13 +145,13 @@ namespace sqlite3pp
 
 	~database();
 	
-#ifdef SQLITE3PP_UNICODE	
+#ifndef SQLITE3PP_NO_UNICODE	
 	// Unicode support
 	explicit database( wchar_t const* dbname, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, const wchar_t* vfs = nullptr );
 	int connect( wchar_t const* dbname, int flags, const wchar_t* vfs = nullptr );
 	int execute( const std::wstring& sql );
 	int execute( const std::string& sql );
-#endif //SQLITE3PP_UNICODE
+#endif //!SQLITE3PP_NO_UNICODE
 	int connect( char const* dbname, int flags, const char* vfs = nullptr );
 	int disconnect();
 
@@ -213,15 +244,13 @@ namespace sqlite3pp
    protected:
 	database& db_;
 	sqlite3_stmt* stmt_;
-#ifdef SQLITE3PP_UNICODE
-	union { char const* tail_;	wchar_t const* wcstail_;};
+	char const* tail_;
+#ifndef SQLITE3PP_NO_UNICODE
 	explicit statement( database& db, wchar_t const* stmt = nullptr );
 	int prepare_impl( wchar_t const* stmt);
    public:
 	int prepare( wchar_t const* stmt);
-#else
-	char const* tail_;
-#endif //SQLITE3PP_UNICODE
+#endif // !SQLITE3PP_NO_UNICODE
   };
 
   class command : public statement
@@ -317,10 +346,26 @@ namespace sqlite3pp
 	  double get(int idx, double) const;
 	  long long int get(int idx, long long int) const;
 	  char const* get(int idx, char const*) const;
-#ifdef SQLITE3PP_UNICODE
+
+	  //////////////////////////////////////////////////////////////////////////////////
+	  // Start SQLite3pp_EZ changes
+	  // To minimize changes in original SQLite3pp.cpp code, the implementation for this section is in SQLite3pp_EZ.cpp
+#ifndef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+#ifndef SQLITE3PP_NO_UNICODE
 	  wchar_t const* get(int idx, wchar_t const*) const;
-	  std::wstring get(int idx, std::wstring) const;
-#endif //SQLITE3PP_UNICODE
+	  std::wstring get(int idx, const std::wstring&value) const;
+#endif// !SQLITE3PP_NO_UNICODE
+	  Blob get(int idx, const Blob&) const;
+	  Clob get(int idx, const Clob&) const;
+	  Tinyint get(int idx, const Tinyint&) const;
+	  Smallint get(int idx, const Smallint&) const;
+	  Boolean get(int idx, const Boolean&) const;
+	  UBigint get(int idx, const UBigint&) const;
+	  Date get(int idx, const Date&) const;
+	  Datetime get(int idx, const Datetime&) const;
+#endif// !SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+	  // End SQLite3pp_EZ changes
+	  //////////////////////////////////////////////////////////////////////////////////
 	  std::string get(int idx, std::string) const;
 	  void const* get(int idx, void const*) const;
 	  null_type get(int idx, null_type) const;
@@ -349,9 +394,9 @@ namespace sqlite3pp
 	};
 
 	explicit query( database& db, char const* stmt = nullptr );
-#ifdef SQLITE3PP_UNICODE
+#ifndef SQLITE3PP_NO_UNICODE
 	explicit query( database& db, wchar_t const* stmt );
-#endif //SQLITE3PP_UNICODE
+#endif //!SQLITE3PP_NO_UNICODE
 	int column_count() const;
 
 	char const* column_name(int idx) const;
