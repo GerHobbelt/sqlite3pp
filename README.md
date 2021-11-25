@@ -46,8 +46,8 @@ SQLiteClassBuilder	createMyClasses(
      * 	using Double = double;
      * 	using Blob = std::shared_ptr<std::vector<Tinyint> >;
      * 	using Clob = std::shared_ptr< std::basic_string<unsigned char> >;
-     * 	using Nchar = std::wstring;
-     * 	using Nvarchar = std::wstring;
+     * 	using Nchar = **std::wstring**;
+     * 	using Nvarchar = **std::wstring**;
      * 	using Character = std::string;
      * 	using Varchar = std::string;
  * Automatically populate the Table class with associated table
