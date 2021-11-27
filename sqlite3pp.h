@@ -52,43 +52,18 @@ SQLITE_EXTENSION_INIT1
 
 namespace sqlite3pp
 {
-#ifdef SQLITE3PP_NO_UNICODE
-	typedef std::string tstring;
+#if defined(SQLITE3PP_NO_UNICODE) || !defined(_UNICODE)
+	using tstring = std::string;
 #else
-	std::wstring to_wstring( const char* src );
-	#ifdef _INC_TCHAR
-		typedef std::basic_string<TCHAR> tstring;
-	#else
-		typedef std::wstring tstring;
-	#endif //_INC_TCHAR
-#endif //SQLITE3PP_NO_UNICODE	
+	using tstring = std::wstring;
+#endif // SQLITE3PP_NO_UNICODE || !_UNICODE
 
 #ifndef SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
 	// SQLite3 types (Excluding string types)
-	using Integer = int;
-	using Int = int;
-	using Int2 = int;
-	using Int8 = int;
-	using Tinyint = unsigned char;
-	using Smallint = short int;
-	using Mediumint = int;
-	using Boolean = bool;
-	using Bigint = long long int;
-	using UBigint = unsigned long long int;
-	using Numeric = double;
-	using Decimal = double;
-	using Real = double;
-	using DoublePrcsn = double;
-	using Double = double;
-	using Float = double;
-	using Blob = std::shared_ptr<std::vector<Tinyint> >;// Stores binary data
+	using Blob = std::shared_ptr<std::vector<unsigned char> >;// Stores binary data
 	using Clob = std::shared_ptr< std::vector<char> >;	// Stores strings that can have multiple NULL terminators
 	struct Date	{std::time_t t;};
 	struct Datetime	{std::tm tm_struct;};
-	using Nchar = std::wstring;
-	using Nvarchar = std::wstring;
-	using Character = std::string;
-	using Varchar = std::string;
 	using TEXT = tstring;
 #endif //!SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY	
 
@@ -355,12 +330,12 @@ namespace sqlite3pp
 	  wchar_t const* get(int idx, wchar_t const*) const;
 	  std::wstring get(int idx, const std::wstring&value) const;
 #endif// !SQLITE3PP_NO_UNICODE
+	  unsigned char get(int idx, const unsigned char&) const;
+	  short int get(int idx, const short int&) const;
+	  bool get(int idx, const bool&) const;
+	  unsigned long long int get(int idx, const unsigned long long int&) const;
 	  Blob get(int idx, const Blob&) const;
 	  Clob get(int idx, const Clob&) const;
-	  Tinyint get(int idx, const Tinyint&) const;
-	  Smallint get(int idx, const Smallint&) const;
-	  Boolean get(int idx, const Boolean&) const;
-	  UBigint get(int idx, const UBigint&) const;
 	  Date get(int idx, const Date&) const;
 	  Datetime get(int idx, const Datetime&) const;
 #endif// !SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY

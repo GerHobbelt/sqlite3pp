@@ -10,7 +10,6 @@
 */
 #include <windows.h>
 #include <stringapiset.h>
-#include <tchar.h>
 
 #include "sqlite3pp_ez.h"
 #include <vector>
@@ -48,14 +47,14 @@ namespace sqlite3pp
 		return retrnVal;
 	}
 
-	std::wstring to_wstring( const std::string &src )
+	std::wstring sql_base::to_wstring( const std::string &src )
 	{
-		return to_wstring( src.c_str() );
+		return sqlite3pp::to_wstring( src.c_str() );
 	}
 
-	std::string to_string( const std::wstring &src )
+	std::string sql_base::to_string( const std::wstring &src )
 	{
-		return to_string( src.c_str() );
+		return sqlite3pp::to_string( src.c_str() );
 	}
 
 	int database::connect( wchar_t const * dbname, int flags, const wchar_t * vfs )
@@ -84,7 +83,7 @@ namespace sqlite3pp
 	
 	int database::execute( const std::wstring& sql )
 	{
-		return execute( to_string(sql) );
+		return execute(sql_base::to_string(sql) );
 	}
 
 	statement::statement( database& db, wchar_t const* stmt ) : db_( db ), stmt_( 0 ), tail_( 0 )
@@ -126,84 +125,84 @@ namespace sqlite3pp
 	///////////////////////////////////////////////////////////////////////////
 	// Added Global functions for global_db usage
 	///////////////////////////////////////////////////////////////////////////
-	database db_gbl::global_db;
-	const char db_gbl::TableArg_PreExecuteArg[] = "PreExecuteArg";
-	const char db_gbl::TableArg_WhereClauseArg[] = "WhereClauseArg";
-	const char db_gbl::TableArg_InsertArg[] = "InsertArg";
-	const char db_gbl::TableArg_DbFileNameArg[] = "DbFileNameArg";
-	const char db_gbl::TableArg_ValueArg[] = "ValueArg";
+	database sql_base::global_db;
+	const char sql_base::TableArg_PreExecuteArg[] = "PreExecuteArg";
+	const char sql_base::TableArg_WhereClauseArg[] = "WhereClauseArg";
+	const char sql_base::TableArg_InsertArg[] = "InsertArg";
+	const char sql_base::TableArg_DbFileNameArg[] = "DbFileNameArg";
+	const char sql_base::TableArg_ValueArg[] = "ValueArg";
 
 	void setGlobalDB( const std::string& db_filename )
 	{
-		db_gbl::global_db = database( db_filename.c_str() );
+		sql_base::global_db = database( db_filename.c_str() );
 	}
 
 	void setGlobalDB( const std::wstring& db_filename )
 	{
-		db_gbl::global_db = database(db_filename.c_str());
+		sql_base::global_db = database(db_filename.c_str());
 	}
 
 	database& getGlobalDB(  )
 	{
-		return db_gbl::global_db;
+		return sql_base::global_db;
 	}
 
 	int Execute( const std::string& sql )
 	{
-		return db_gbl::global_db.execute(sql);
+		return sql_base::global_db.execute(sql);
 	}
 
 	int Execute( const std::wstring& sql )
 	{
-		return db_gbl::global_db.execute( to_string( sql).c_str() );
+		return sql_base::global_db.execute( sql_base::to_string( sql).c_str() );
 	}
 	int Connect( char const * dbname, int flags, const char * vfs )
 	{
-		return db_gbl::global_db.connect(dbname, flags, vfs);
+		return sql_base::global_db.connect(dbname, flags, vfs);
 	}
 	int Connect( wchar_t const * dbname, int flags, const wchar_t * vfs )
 	{
-		return db_gbl::global_db.connect( to_string( dbname ).c_str(), flags, to_string( vfs ).c_str() );;
+		return sql_base::global_db.connect( sql_base::to_string( dbname ).c_str(), flags, sql_base::to_string( vfs ).c_str() );;
 	}
 	int Attach( char const * dbname, char const * name )
 	{
-		return  db_gbl::global_db.attach(dbname, name);
+		return  sql_base::global_db.attach(dbname, name);
 	}
 	int Attach( wchar_t const * dbname, wchar_t const * name )
 	{
-		return  db_gbl::global_db.attach( to_string( dbname ).c_str(), to_string( name ).c_str() );
+		return  sql_base::global_db.attach( sql_base::to_string( dbname ).c_str(), sql_base::to_string( name ).c_str() );
 	}
 	int Detach( char const * name )
 	{
-		return  db_gbl::global_db.detach(name);
+		return  sql_base::global_db.detach(name);
 	}
 	int Detach( wchar_t const * name )
 	{
-		return db_gbl::global_db.detach( to_string(name).c_str() );
+		return sql_base::global_db.detach( sql_base::to_string(name).c_str() );
 	}
 	int Backup( char const * dbname, database & destdb, char const * destdbname, database::backup_handler h, int step_page )
 	{
-		return db_gbl::global_db.backup(dbname,destdb,destdbname,h,step_page);
+		return sql_base::global_db.backup(dbname,destdb,destdbname,h,step_page);
 	}
 	int Backup( wchar_t const * dbname, database & destdb, wchar_t const * destdbname, database::backup_handler h, int step_page )
 	{
-		return db_gbl::global_db.backup( to_string( dbname).c_str(), destdb, to_string( destdbname).c_str(), h, step_page );
+		return sql_base::global_db.backup( sql_base::to_string( dbname).c_str(), destdb, sql_base::to_string( destdbname).c_str(), h, step_page );
 	}
 	std::string GetDbErrMsg()
 	{
-		return db_gbl::global_db.error_msg();
+		return sql_base::global_db.error_msg();
 	}
 	std::wstring GetDbErrMsgW()
 	{
-		return to_wstring(db_gbl::global_db.error_msg());
+		return sql_base::to_wstring(sql_base::global_db.error_msg());
 	}
 	int GetDbErrNo()
 	{
-		return db_gbl::global_db.error_code();
+		return sql_base::global_db.error_code();
 	}
 	int GetDbExtErrNo()
 	{
-		return db_gbl::global_db.extended_error_code();
+		return sql_base::global_db.extended_error_code();
 	}
 
 	// sqlite_master is used when querying all the tables in a SQLite DB
@@ -226,8 +225,8 @@ namespace sqlite3pp
 	// Predefined string options
 	const StrOptions SQLiteClassBuilder::strOpt_std_string  = { "std::string", "", "", "#include <string>"  };
 	const StrOptions SQLiteClassBuilder::strOpt_std_wstring = { "std::wstring", "L", "", "#include <string>" };
-	const StrOptions SQLiteClassBuilder::strOpt_std_tstring = { "std::basic_string<TCHAR>", "_T(", ")", "#include <string>\n#include <tchar.h>" };
-	const StrOptions SQLiteClassBuilder::strOpt_sql_tstring = { "sqlite3pp::tstring", "_T(", ")", "#include <tchar.h>\n#include \"sqlite3pp_ez.h\"" };
+	const StrOptions SQLiteClassBuilder::strOpt_sql_tstring = { "sqlite3pp::tstring", "T_(", ")", "#include \"sqlite3pp_ez.h\"" };
+	const StrOptions SQLiteClassBuilder::strOpt_sql_tstring_T = { "sqlite3pp::tstring", "_T(", ")", "#include \"sqlite3pp_ez.h\"" };
 	// Predefined MiscOptions for common settings
 	const MiscOptions SQLiteClassBuilder::MiscOpt_max = { ",", false, false, false, false, false, false };
 	const MiscOptions SQLiteClassBuilder::MiscOpt_min = { ",", true, true, true, true, true, false, false };
@@ -240,8 +239,11 @@ namespace sqlite3pp
 
 	std::string SQLiteClassBuilder::GetType(const char* str)
 	{
-		const char* DefaultType = "StrType";
-		if (!str) return DefaultType;
+		const std::string DefaultType = "Text";
+		if (!str)
+		{
+			return DefaultType;
+		}
 		// There's no practical method for handling blob or clob other than the Blob and Clob type, so don't even include them  in an option to declare them any other way.
 		if (strcmp("BLOB", str) == 0)
 			return "Blob";
@@ -311,7 +313,7 @@ namespace sqlite3pp
 
 			// String types
 			if (strcmp("TEXT", str) == 0)					
-				return "ST::Text";
+				return "Text";
 			if (strncmp("CHARACTER", str, 9) == 0)			
 				return "Character";
 			if (strncmp("VARYING CHARACTER", str, 17) == 0
@@ -354,8 +356,31 @@ namespace sqlite3pp
 		return CreateAllHeaders(m_options, PostFixWhereClause);
 	}
 
+	bool SQLiteClassBuilder::CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, bool AppendToVect)
+	{
+		std::ios_base::openmode openMode = m_AppendTableToHeader ? std::ios_base::out | std::ios_base::app : std::ios_base::out;
+		ClassName = m_options.h.header_prefix + TableName + m_options.h.header_postfix;
+		const std::string HeaderFileName = m_options.h.dest_folder + ClassName + ".h";
+		myfile.open(HeaderFileName.c_str(), openMode);
+		if (!myfile.is_open())
+			return false;
+		if (AppendToVect)
+			m_HeadersCreated.push_back(HeaderFileName);
+		char headerupper[256] = { 0 };
+		strcpy_s(headerupper, (ClassName + "_H").c_str());
+		_strupr_s(headerupper);
+		HeaderUpper = headerupper;
+		// Add includes needed to support specified m_options.str_type
+		myfile << "#ifndef " << HeaderUpper << std::endl;
+		myfile << "#define " << HeaderUpper << std::endl;
+		myfile << m_options.s.str_include << std::endl;
+
+		return true;
+	}
+
 	bool SQLiteClassBuilder::CreateAllHeaders(const TblClassOptions &strtype, const std::string &PostFixWhereClause)
 	{
+		m_HeadersCreated.clear();
 		m_options = strtype;
 		const std::string OrgPrefix = m_options.h.header_prefix;
 		using SQLiteMaster = Table<sqlite_master>;
@@ -363,13 +388,40 @@ namespace sqlite3pp
 		for (auto t : tbl)
 		{
 			m_options.h.header_prefix = OrgPrefix + t.type + "_";
-			CreateHeader(t.tbl_name);
+			ProcessClassCreation(t.tbl_name);
 		}
 		m_options.h.header_prefix = OrgPrefix;
+		std::ofstream myfile;
+		std::string ClassName, HeaderUpper;
+		if (CreateHeaderPrefix("All_Headers", myfile, ClassName, HeaderUpper, false))
+		{
+			for (auto s : m_HeadersCreated)
+			{
+				myfile << "#include \"" << s << "\"" << std::endl;
+			}
+			myfile << "\n#endif // !" << HeaderUpper << std::endl;
+			myfile.close();
+		}
+
 		return true;
 	}
 
+	bool IsStrType(const char* str)
+	{
+		if (strcmp("Text", str) == 0 || strcmp("StrType", str) == 0 || strncmp("Character", str, 9) == 0 || strncmp("Varchar", str, 7) == 0 )
+			return true;
+		if (strncmp("Nvarchar", str, 8) == 0 || strncmp("Nchar", str, 5) == 0)
+			return true;
+		return false;
+	}
+
 	bool SQLiteClassBuilder::CreateHeader(const std::string& TableName, std::string QueryStr)
+	{
+		m_HeadersCreated.clear();
+		return ProcessClassCreation(TableName, QueryStr);
+	}
+
+	bool SQLiteClassBuilder::ProcessClassCreation(const std::string& TableName, std::string QueryStr)
 	{
 		if (QueryStr.empty())
 			QueryStr = "SELECT * FROM " + TableName;
@@ -382,26 +434,15 @@ namespace sqlite3pp
 			columns.push_back(std::pair<std::string, std::string>(qry.column_name(i), GetType(qry.column_decltype(i))));
 			columns_with_comma.push_back(std::pair<std::string, std::string>(qry.column_name(i), i ? ", " : ""));
 		}
-
-		std::ios_base::openmode openMode = m_AppendTableToHeader ? std::ios_base::out | std::ios_base::app : std::ios_base::out;
-		if (!m_options.h.dest_folder.empty() && !dir_exists(m_options.h.dest_folder))
-			_mkdir(m_options.h.dest_folder.c_str());
-		const std::string& ClassName = m_options.h.header_prefix + TableName + m_options.h.header_postfix;
-		std::ofstream myfile(( m_options.h.dest_folder + ClassName + ".h").c_str(), openMode);
-		if (!myfile.is_open())
+		std::ofstream myfile;
+		std::string ClassName, HeaderUpper;
+		if (!CreateHeaderPrefix(TableName, myfile, ClassName, HeaderUpper))
 			return false;
-		char HeaderUpper[256] = { 0 };
-		strcpy_s(HeaderUpper, (ClassName + "_H").c_str());
-		_strupr_s(HeaderUpper);
-		// Add includes needed to support specified m_options.str_type
-		myfile << "#ifndef " << HeaderUpper << std::endl;
-		myfile << "#define " << HeaderUpper << std::endl;
-		myfile << m_options.s.str_include << std::endl;
 
 		////////////////////////////////////////////////////////////////////////////////////////////
 		// Create Table/View class, and create a define type for strings
-		myfile << "\nclass " << ClassName << ": public sqlite3pp::db_gbl\n{\npublic:" << std::endl;
-		myfile << "\tusing StrType = " << m_options.s.str_type << ";\n\tusing ST = StrTypes<StrType>;" << std::endl;
+		myfile << "\nclass " << ClassName << ": public sqlite3pp::sql_base\n{\npublic:" << std::endl;
+		myfile << "\tusing StrType = " << m_options.s.str_type << ";\n\tusing Text = StrType;" << std::endl;
 
 		if (!m_options.m.exclude_table_interface)
 		{
@@ -456,14 +497,31 @@ namespace sqlite3pp
 		for (auto c : columns)
 			myfile << "\t" << c.second << " " << c.first << ";" << std::endl;
 
+		const char* OperatorStreamComment = "// Optional logic for operator<<(). Set exclude_ostream_operator to true to exclude operator<<() logic when creating this class through SQLiteClassBuilder.\n";
 		if (m_options.m.exclude_ostream_operator != true)
 		{
 			if (!m_options.m.exclude_comments)
-				myfile << "\n\t// Optional operator<< declarations. Set exclude_ostream_operator to true to exclude this operator when this class is created." << std::endl;
-			// Declare operator<< friend
-			myfile << "\ttemplate<class T> friend T& operator<<(T& os, const " << ClassName << "& t);" << std::endl;
-			// Create getDelimiter member function. It's needed for operator<<
-			myfile << "\tstatic StrType getDelimiter() { return " << m_options.s.str_pre << " \"" << m_options.m.delimiter << "\" " << m_options.s.str_post << "; }" << std::endl;
+				myfile << "\n\t" << OperatorStreamComment;
+			////////////////////////////////////////////////////////////////////////////////////////////
+			// Create function OStream
+			myfile << "\ttemplate<class T> T& OStream(T& t) const\n\t{\n\t\tt.os";
+			std::string delimiter_tmp;
+			for (auto c : columns)
+			{
+				if (IsStrType(c.second.c_str()))
+					myfile << delimiter_tmp << " << t.str(" << c.first << ")";
+				else
+					myfile << delimiter_tmp << " << " << c.first;
+				if (delimiter_tmp.empty())
+					delimiter_tmp = " << t.d";
+			}
+			myfile << ";\n\t\treturn t;\n\t}" << std::endl;
+			////////////////////////////////////////////////////////////////////////////////////////////
+			// Declare operator<< friends
+			myfile << "\tfriend std::ostream& operator<<(std::ostream& os, const " << ClassName << "& t);" << std::endl;
+			myfile << "\tfriend std::wostream& operator<<(std::wostream& os, const " << ClassName << "& t);" << std::endl;
+			// Create Delimit member function. It's needed for operator<<
+			myfile << "\tstatic StrType Delimiter() { return " << m_options.s.str_pre << " \"" << m_options.m.delimiter << "\" " << m_options.s.str_post << "; }" << std::endl;
 		}
 
 
@@ -474,21 +532,9 @@ namespace sqlite3pp
 		if (m_options.m.exclude_ostream_operator != true)
 		{
 			if (!m_options.m.exclude_comments)
-				myfile << "\n// Optional operator<< function for class " << ClassName << ". Set exclude_ostream_operator to true to exclude this operator when this class is created." << std::endl;
-			////////////////////////////////////////////////////////////////////////////////////////////
-			// Create associated opereator<<
-			myfile << "template<class T> T& operator<<(T& os, const " << ClassName << "& t)\n{" << std::endl;
-			myfile << "\tstatic const " << ClassName << "::StrType delimiter = t.getDelimiter();" << std::endl;
-			myfile << "\tos";
-			std::string delimiter_tmp;
-			for (auto c : columns)
-			{
-				myfile << delimiter_tmp << " << t." << c.first;
-				if (delimiter_tmp.empty())
-					delimiter_tmp = " << delimiter";
-			}
-			myfile << ";\n\treturn os;\n}" << std::endl << std::endl;
-			////////////////////////////////////////////////////////////////////////////////////////////
+				myfile << OperatorStreamComment;
+			myfile << "std::ostream& operator<<(std::ostream& os, const " << ClassName << "& t) { sqlite3pp::ostream_a o(os, t.Delimiter()); return t.OStream(o).os; }" << std::endl;
+			myfile << "std::wostream& operator<<(std::wostream& os, const " << ClassName << "& t) { sqlite3pp::ostream_w o(os, t.Delimiter());  return t.OStream(o).os; }" << std::endl;
 		}
 
 		myfile << "\n#endif // !" << HeaderUpper << std::endl;
@@ -517,14 +563,18 @@ namespace sqlite3pp
 			return value;
 #endif  // !SQLITE3PP_ALLOW_NULL_STRING_RETURN
 
-		if (strcmp(strtype, "TEXT") == 0 || strncmp("CHARACTER", strtype, 9) == 0 || strncmp("VARYING CHARACTER", strtype, 17) == 0 || strncmp("VARCHAR", strtype, 7) == 0)
-			value = to_wstring((char*)(Val));
+		if (!strtype)
+		{
+			value = sql_base::to_wstring((char*)(Val));
+		}
+		else if (strcmp(strtype, "TEXT") == 0 || strncmp("CHARACTER", strtype, 9) == 0 || strncmp("VARYING CHARACTER", strtype, 17) == 0 || strncmp("VARCHAR", strtype, 7) == 0)
+			value = sql_base::to_wstring((char*)(Val));
 		else if ( strncmp("NCHAR", strtype, 5) == 0 || strncmp("NVARCHAR", strtype, 8) == 0 || strncmp("NATIVE CHARACTER", strtype, 16) == 0)
 			value = Val;
 		else
 		{
 			assert(0);// Code should NOT get here.  If it does something went wrong.
-			value = to_wstring((char*)(Val)); // Handle it gracefully in release mode.
+			value = sql_base::to_wstring((char*)(Val)); // Handle it gracefully in release mode.
 		}
 
 		return value; 
@@ -535,8 +585,8 @@ namespace sqlite3pp
 	Blob query::rows::get(int idx, const Blob&) const
 	{
 		const int data_len = column_bytes(idx);
-		const Tinyint* ptr = static_cast<const Tinyint*>(sqlite3_column_blob(stmt_, idx));
-		Blob data(new std::vector<Tinyint>(ptr, ptr + data_len));
+		const unsigned char* ptr = static_cast<const unsigned char*>(sqlite3_column_blob(stmt_, idx));
+		Blob data(new std::vector<unsigned char>(ptr, ptr + data_len));
 		return data;
 	}
 
@@ -548,24 +598,24 @@ namespace sqlite3pp
 		return data;
 	}
 
-	Tinyint query::rows::get(int idx, const Tinyint&) const
+	unsigned char query::rows::get(int idx, const unsigned char&) const
 	{
-		return static_cast<Tinyint>(get(idx, int()));
+		return static_cast<unsigned char>(get(idx, int()));
 	}
 
-	Smallint query::rows::get(int idx, const Smallint&) const
+	short int query::rows::get(int idx, const short int&) const
 	{
-		return static_cast<Smallint>(get(idx, int()));
+		return static_cast<short int>(get(idx, int()));
 	}
 
-	Boolean query::rows::get(int idx, const Boolean&) const
+	bool query::rows::get(int idx, const bool&) const
 	{
-		return static_cast<Boolean>(get(idx, int()));
+		return static_cast<bool>(get(idx, int()));
 	}
 
-	UBigint query::rows::get(int idx, const UBigint&) const
+	unsigned long long int query::rows::get(int idx, const unsigned long long int&) const
 	{
-		return static_cast<UBigint>(sqlite3_column_int64(stmt_, idx));
+		return static_cast<unsigned long long int>(sqlite3_column_int64(stmt_, idx));
 	}
 
 	Date query::rows::get(int idx, const Date&) const
@@ -605,22 +655,22 @@ namespace sqlite3pp
 		return data;
 	}
 
-	std::wostream& operator<<(std::wostream& os, const Character& t)
+	std::wostream& operator<<(std::wostream& os, const sql_base::Character& t)
 	{
-		os << to_wstring(t);
+		os << sql_base::to_wstring(t);
 		return os;
 	}
 
-	std::ostream& operator<<(std::ostream& os, const Nchar& t)
+	std::ostream& operator<<(std::ostream& os, const sql_base::Nchar& t)
 	{
-		os << to_string(t);
+		os << sql_base::to_string(t);
 		return os;
 	}
 
 	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Blob& t)
 	{
 		std::string data(t->data(), t->data() + t->size());
-		std::wstring wdata = to_wstring(data);
+		std::wstring wdata = sql_base::to_wstring(data);
 		os.write(wdata.c_str(), wdata.size());
 		return os;
 	}
@@ -635,7 +685,7 @@ namespace sqlite3pp
 	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Clob& t)
 	{
 		std::string data(t->data(), t->data() + t->size());
-		std::wstring wdata = to_wstring(data);
+		std::wstring wdata = sql_base::to_wstring(data);
 		os.write(wdata.c_str(), wdata.size());
 		return os;
 	}
@@ -702,5 +752,5 @@ namespace sqlite3pp
 			os << "0000-00-00";
 		return os;
 	}
-#endif// !SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
+#endif	// !SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
 };

@@ -20,14 +20,50 @@
 #include "sqlite3pp.h"
 #include <vector>
 #include <string>
-#include <ostream>
-#include <istream>
+#include <iostream>
+
+// For portability and to avoid conflicts, using T_() macro instead of windows _T().
+#ifdef _UNICODE
+#define T_(x)      L ## x
+#else
+#define T_(x)      x
+#endif // _UNICODE
+
 
 namespace sqlite3pp
 {
-	class db_gbl
+	class sql_base
 	{
 	public:
+		// SQLite3 types (Excluding string types)
+		using Integer = int;
+		using Int = int;
+		using Int2 = int;
+		using Int8 = int;
+		using Tinyint = unsigned char;
+		using Smallint = short int;
+		using Mediumint = int;
+		using Boolean = bool;
+		using Bigint = long long int;
+		using UBigint = unsigned long long int;
+		using Numeric = double;
+		using Decimal = double;
+		using Real = double;
+		using DoublePrcsn = double;
+		using Double = double;
+		using Float = double;
+		using Blob = sqlite3pp::Blob;// Stores binary data
+		using Clob = sqlite3pp::Clob;	// Stores strings that can have multiple NULL terminators
+		using Date = sqlite3pp::Date;
+		using Datetime = sqlite3pp::Datetime;
+		using Nchar = std::wstring;
+		using Nvarchar = std::wstring;
+		using Character = std::string;
+		using Varchar = std::string;
+
+		static std::string to_string(const std::wstring &src);
+		static std::wstring to_wstring(const std::string &src);
+
 		friend void setGlobalDB( const std::string& db_filename );
 		friend void setGlobalDB( const std::wstring& db_filename );
 		friend database& getGlobalDB();
@@ -55,14 +91,6 @@ namespace sqlite3pp
 		static const char TableArg_DbFileNameArg[];
 		static const char TableArg_ValueArg[];
 	};
-
-	template <class T_STR>
-	struct StrTypes
-	{
-		// SQLite3 string types
-		using Text		= T_STR;
-	};
-
 	
 
 	template <class T_STR, char const *TypeName>
@@ -76,9 +104,8 @@ namespace sqlite3pp
 	};
 
 	template <class T, class PARENT_TYPE = T>  // Having ability to change PARENT_TYPE to a base class allows for merging queries (like a union, but faster)
-	class Table : public db_gbl
+	class Table : public sql_base
 	{
-
 	public:
 		// Defined types to be used
 		using T_STR = typename T::StrType; // Allows Table class to work with different string types (std::string, std::wstring, sqlite3pp::tstring)
@@ -122,6 +149,9 @@ namespace sqlite3pp
 		void append( const VectType &vecttype ) { return m_VectType.push_back( vecttype ); }
 		std::string CreateSelectQueryStr(WhereClauseArg whereclausearg, std::string) { return "SELECT " + T::getColumnNames() + " FROM " + T::getTableName() + " " + whereclausearg.get_Str(); }
 		std::wstring CreateSelectQueryStr(WhereClauseArg whereclausearg, std::wstring) { return L"SELECT " + T::getColumnNames() + L" FROM " + T::getTableName() + L" " + whereclausearg.get_Str(); }
+		static T_STR getTableName() { return T::getTableName(); }
+		static T_STR getColumnNames() { return T::getColumnNames(); }
+		static int getColumnCount() { return T::getColumnCount(); }
 
 	protected:
 		// Protected methods
@@ -149,8 +179,29 @@ namespace sqlite3pp
 		}
 	};
 
-	std::wostream& operator<<(std::wostream& os, const Character& t);
-	std::ostream& operator<<(std::ostream& os, const Nchar& t);
+	////////////////////////////////////////////////////////////////////////////////////////////
+	// ostream_w, ostream_a, to_string, and to_wstring are used to help out stream of different charater type.
+	std::string to_string(const wchar_t* src);
+	std::wstring to_wstring(const char* src);
+	struct ostream_w
+	{
+		std::wostream &os;
+		const std::wstring d; // Delimiter
+		ostream_w(std::wostream &o, const std::string& sep) :os(o), d(to_wstring(sep.c_str())) {}
+		ostream_w(std::wostream &o, const std::wstring& sep) :os(o), d(sep){}
+		std::wstring str(const std::string& str) const { return to_wstring(str.c_str()); }
+		inline std::wstring str(const std::wstring& str) const { return str; }
+	};
+	struct ostream_a
+	{
+		std::ostream &os;
+		const std::string d; // Delimiter
+		ostream_a(std::ostream &o, const std::string& sep) :os(o), d(sep) {}
+		ostream_a(std::ostream &o, const std::wstring& sep) :os(o), d(to_string(sep.c_str())) {}
+		inline std::string str(const std::string& str) const { return str; }
+		std::string str(const std::wstring& str) const { return to_string(str.c_str()); }
+	};
+
 	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Blob& t);
 	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Blob& t);
 	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Clob& t);
@@ -160,10 +211,6 @@ namespace sqlite3pp
 	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Date& t);
 	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Date& t);
 
-	std::string to_string( const wchar_t* src );
-	std::wstring to_wstring( const char* src );
-	std::string to_string( const std::wstring &src );
-	std::wstring to_wstring( const std::string &src );
 	void setGlobalDB( const std::string& db_filename );
 	void setGlobalDB( const std::wstring& db_filename );
 	database& getGlobalDB();
@@ -188,7 +235,7 @@ namespace sqlite3pp
 		std::string str_type;			// "std::string", "std::wstring", "sqlite3pp::tstring"
 		std::string str_pre;			//  "", "L", "_T("
 		std::string str_post;			//  "", "", ")"
-		std::string str_include;		//  include needed to support str_type. ie:("#include <string>", "#include \"sqlite3pp_ez.h\"", "#include <string>\n#include <tchar.h>")
+		std::string str_include;		//  include needed to support str_type. ie:("#include <string>", "#include \"sqlite3pp_ez.h\"", "#include <string>")
 	};
 	struct HeaderOpt
 	{
@@ -221,6 +268,7 @@ namespace sqlite3pp
 		sqlite3pp::database m_db;
 		TblClassOptions m_options;
 		bool m_AppendTableToHeader;
+		std::vector<std::string> m_HeadersCreated;
 		std::string GetType(const char* str);
 		static bool dir_exists(const std::string& foldername);
 		void Init(
@@ -230,6 +278,8 @@ namespace sqlite3pp
 			, const MiscOptions &miscoptions
 			, const HeaderOpt &headeropt
 		);
+		bool ProcessClassCreation(const std::string& ClassName, std::string QueryStr = "");
+		bool CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, bool AppendToVect = true);
 	public:
 		// This constructor is best to use when creating a header for all tables
 		SQLiteClassBuilder(const std::string& Db_filename						// Only Required Field
@@ -263,10 +313,10 @@ namespace sqlite3pp
 		bool CreateHeader(const std::string& ClassName, std::string QueryStr = "");
 
 		// Predefined string options
-		static const StrOptions strOpt_std_string ; // TEXT type defaults to std::string
-		static const StrOptions strOpt_std_wstring; // TEXT type defaults to std::wstring
-		static const StrOptions strOpt_std_tstring; // TEXT type defaults to std::basic_string<TCHAR>
-		static const StrOptions strOpt_sql_tstring; // TEXT type defaults to sqlite3pp::tstring
+		static const StrOptions strOpt_std_string ;		// TEXT type defaults to std::string
+		static const StrOptions strOpt_std_wstring;		// TEXT type defaults to std::wstring
+		static const StrOptions strOpt_sql_tstring;		// TEXT type defaults to sqlite3pp::tstring, and uses T_() macro for portability and to avoid conflicts with tchar.h
+		static const StrOptions strOpt_sql_tstring_T;	// Same as strOpt_sql_tstring, but uses windows _T() macro
 		// Predefined MiscOptions for common settings
 		static const MiscOptions MiscOpt_max;	// sqlite3pp:Table compatible. Includes the full implementation, and it creates protected data members. It includes get_* functions, set_* functions, comments, and operator<<.
 		static const MiscOptions MiscOpt_min;	// sqlite3pp:Table compatible. Creates a minimalist class, with bare essentials to interface with sqlite3pp:Table. It creates public member variables, and it excludes get_* functions, set_* functions, comments, and operator<<
