@@ -57,6 +57,18 @@ namespace sqlite3pp
 		return sqlite3pp::to_string( src.c_str() );
 	}
 
+#ifdef _UNICODE
+	std::wstring sql_base::to_tstring(const std::string &src)
+	{
+		return to_wstring(src);
+	}
+#else
+	std::string sql_base::to_tstring(const std::wstring &src)
+	{
+		return to_string(src);
+	}
+#endif // _UNICODE
+
 	int database::connect( wchar_t const * dbname, int flags, const wchar_t * vfs )
 	{
 		if ( !borrowing_ )
@@ -212,6 +224,7 @@ namespace sqlite3pp
 		using StrType = std::string;
 		static StrType getTableName() { return  "sqlite_master"; }
 		static StrType getColumnNames() { return  "type, name, tbl_name, rootpage, sql"; }
+		static StrType getSelecColumnNames() { return  "type, name, tbl_name, rootpage, sql"; }
 		template<class T> void getStreamData(T q) { q.getter() >> type >> name >> tbl_name >> rootpage >> sql; }
 		static int getColumnCount() { return 5; }
 	public:
@@ -228,22 +241,25 @@ namespace sqlite3pp
 	const StrOptions SQLiteClassBuilder::strOpt_sql_tstring = { "sqlite3pp::tstring", "T_(", ")", "#include \"sqlite3pp_ez.h\"" };
 	const StrOptions SQLiteClassBuilder::strOpt_sql_tstring_T = { "sqlite3pp::tstring", "_T(", ")", "#include \"sqlite3pp_ez.h\"" };
 	// Predefined MiscOptions for common settings
-	const MiscOptions SQLiteClassBuilder::MiscOpt_max = { ",", false, false, false, false, false, false };
-	const MiscOptions SQLiteClassBuilder::MiscOpt_min = { ",", true, true, true, true, true, false, false };
-	const MiscOptions SQLiteClassBuilder::MiscOpt_var = { ",", true, true, true, true, true, true, false };
+	const MiscOptions SQLiteClassBuilder::MiscOpt_max = { ",", false, false, false, false, false, false, false, false, false };
+	const MiscOptions SQLiteClassBuilder::MiscOpt_min = { ",", true, true, true, true, true, false, false, true, true };
+	const MiscOptions SQLiteClassBuilder::MiscOpt_var = { ",", true, true, true, true, true, true, false, true, true };
 	// Default settings for HeaderOpt
 	const HeaderOpt SQLiteClassBuilder::HeaderDefaultOpt = { "SQL\\", "sql_", "" };
 
 	const char *SQLiteClassBuilder::Nill = "#NILL#";
 	const char *SQLiteClassBuilder::CreateHeaderForAllTables = "%CreateHeaderForAllTables%";
 
-	std::string SQLiteClassBuilder::GetType(const char* str)
+	std::string SQLiteClassBuilder::GetType(const char* str_org)
 	{
 		const std::string DefaultType = "Text";
-		if (!str)
+		if (!str_org)
 		{
 			return DefaultType;
 		}
+		char str[99] = { 0 };
+		strcpy_s(str, str_org);
+		_strupr_s(str);
 		// There's no practical method for handling blob or clob other than the Blob and Clob type, so don't even include them  in an option to declare them any other way.
 		if (strcmp("BLOB", str) == 0)
 			return "Blob";
@@ -337,11 +353,16 @@ namespace sqlite3pp
 		return st.st_mode & S_IFDIR;
 	}
 
-	void SQLiteClassBuilder::Init(const std::string & TableOrView_name, const std::string & PostFixWhereClause, const StrOptions & stroptions, const MiscOptions & miscoptions, const HeaderOpt & headeropt)
+	TblClassOptions SQLiteClassBuilder::Init(const StrOptions & stroptions, const MiscOptions & miscoptions, const HeaderOpt & headeropt)
 	{
-		m_options = { stroptions , miscoptions , headeropt};
+		TblClassOptions option = { stroptions, miscoptions, headeropt };
+		return option;
+	}
+
+	void SQLiteClassBuilder::Init(const std::string & TableOrView_name, const std::string & WhereClause)
+	{
 		if (TableOrView_name == CreateHeaderForAllTables)
-			CreateAllHeaders(m_options, PostFixWhereClause);
+			CreateAllHeaders(m_options, WhereClause);
 		else if (!TableOrView_name.empty() && TableOrView_name != Nill)
 			CreateHeader(TableOrView_name);
 	}
@@ -351,9 +372,9 @@ namespace sqlite3pp
 		m_db.disconnect();
 	}
 
-	bool SQLiteClassBuilder::CreateAllHeaders(const std::string &PostFixWhereClause)
+	bool SQLiteClassBuilder::CreateAllHeaders(const std::string &WhereClause)
 	{
-		return CreateAllHeaders(m_options, PostFixWhereClause);
+		return CreateAllHeaders(m_options, WhereClause);
 	}
 
 	bool SQLiteClassBuilder::CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, bool AppendToVect)
@@ -378,13 +399,14 @@ namespace sqlite3pp
 		return true;
 	}
 
-	bool SQLiteClassBuilder::CreateAllHeaders(const TblClassOptions &strtype, const std::string &PostFixWhereClause)
+	bool SQLiteClassBuilder::CreateAllHeaders(const TblClassOptions &strtype, const std::string &WhereClause)
 	{
 		m_HeadersCreated.clear();
+		m_ClassNames.clear();
 		m_options = strtype;
 		const std::string OrgPrefix = m_options.h.header_prefix;
 		using SQLiteMaster = Table<sqlite_master>;
-		SQLiteMaster tbl(m_db, SQLiteMaster::WhereClauseArg("where (type = 'table' or type = 'view') " + PostFixWhereClause));
+		SQLiteMaster tbl(m_db, SQLiteMaster::WhereClauseArg("where (type = 'table' or type = 'view') " + WhereClause));
 		for (auto t : tbl)
 		{
 			m_options.h.header_prefix = OrgPrefix + t.type + "_";
@@ -396,8 +418,44 @@ namespace sqlite3pp
 		if (CreateHeaderPrefix("All_Headers", myfile, ClassName, HeaderUpper, false))
 		{
 			for (auto s : m_HeadersCreated)
-			{
 				myfile << "#include \"" << s << "\"" << std::endl;
+			if (!m_options.m.exclude_main_hdr_example)
+			{
+				myfile << "\n" << std::endl;
+				if (!m_options.m.exclude_comment_out_exampl)
+					myfile << "/*" << std::endl;
+				if (!m_options.m.exclude_comments)
+				{
+					myfile << "// This example code can be used to test and validate all tables." << std::endl;
+					myfile << "// Example Usage:" << std::endl;
+					myfile << "// \t\tqlite3pp::setGlobalDB(\"mydatabase.db\")" << std::endl;
+					myfile << "// \t\tsqlite3pp::testAllTables();" << std::endl;
+					myfile << "// Warning: testPopulatingAllTables and testAllTables may take a very long time on a database with a lot of content." << std::endl;
+				}
+				myfile << "#include <map>\n#include <memory>\nnamespace sqlite3pp\n{" << std::endl;
+				
+				// Function to create all table instances
+				if (!m_options.m.exclude_comments)
+					myfile << "\t// Function to test populating all tables & views." << std::endl;
+				myfile << "\tstd::map< std::string, std::shared_ptr<sqlite3pp::TableBase> > testPopulatingAllTables()\n\t{" << std::endl;
+				myfile << "\t\tstd::map< std::string, std::shared_ptr < sqlite3pp::TableBase>> Tables;" << std::endl;
+				for (auto s : m_ClassNames)
+					myfile << "\t\tTables[\"" << s << "\"] = std::shared_ptr<sqlite3pp::TableBase>(new sqlite3pp::Table<" << s << ">());" << std::endl;
+				myfile << "\t\treturn Tables;\n\t}" << std::endl;
+			
+				// Function to test all tables
+				myfile << std::endl;
+				if (!m_options.m.exclude_comments)
+					myfile << "\t// Function to test displaying content of all tables & views." << std::endl;
+				myfile << "\tvoid testAllTables()\n\t{" << std::endl;
+				myfile << "\t\tstd::map< std::string, std::shared_ptr < sqlite3pp::TableBase>> myTables = sqlite3pp::testPopulatingAllTables();" << std::endl;
+				myfile << "\t\tfor (auto t : myTables)\n\t\t\tt.second->out(std::wcout);" << std::endl;
+				myfile << "\t}" << std::endl;
+
+				myfile << "}" << std::endl;
+				if (!m_options.m.exclude_comment_out_exampl)
+					myfile << "*/" << std::endl;
+				myfile << "\n" << std::endl;
 			}
 			myfile << "\n#endif // !" << HeaderUpper << std::endl;
 			myfile.close();
@@ -415,16 +473,23 @@ namespace sqlite3pp
 		return false;
 	}
 
-	bool SQLiteClassBuilder::CreateHeader(const std::string& TableName, std::string QueryStr)
+	bool SQLiteClassBuilder::CreateHeader(const std::string& TableName, const TblClassOptions *strtype, std::string QueryStr)
 	{
 		m_HeadersCreated.clear();
+		m_ClassNames.clear();
+		TblClassOptions options;
+		if (strtype)
+		{
+			options = m_options;
+			m_options = *strtype;
+		}
 		return ProcessClassCreation(TableName, QueryStr);
 	}
 
 	bool SQLiteClassBuilder::ProcessClassCreation(const std::string& TableName, std::string QueryStr)
 	{
 		if (QueryStr.empty())
-			QueryStr = "SELECT * FROM " + TableName;
+			QueryStr = "SELECT * FROM \"" + TableName + "\"";
 		sqlite3pp::query qry(m_db, QueryStr.c_str());
 		std::vector<std::pair<std::string, std::string> > columns;
 		std::vector<std::pair<std::string, std::string> > columns_with_comma;
@@ -438,7 +503,7 @@ namespace sqlite3pp
 		std::string ClassName, HeaderUpper;
 		if (!CreateHeaderPrefix(TableName, myfile, ClassName, HeaderUpper))
 			return false;
-
+		m_ClassNames.push_back(ClassName);
 		////////////////////////////////////////////////////////////////////////////////////////////
 		// Create Table/View class, and create a define type for strings
 		myfile << "\nclass " << ClassName << ": public sqlite3pp::sql_base\n{\npublic:" << std::endl;
@@ -447,13 +512,18 @@ namespace sqlite3pp
 		if (!m_options.m.exclude_table_interface)
 		{
 			if (!m_options.m.exclude_comments)
-				myfile << "\n\t// getTableName, getColumnNames, and getStreamData are required for sqlite3pp::Table template class" << std::endl;
+				myfile << "\n\t// getTableName, getColumnNames, getSelecColumnNames, and getStreamData are required for sqlite3pp::Table template class" << std::endl;
 			// Create getTableName member function. It's needed for sqlite3pp::Table template class
 			myfile << "\tstatic StrType getTableName() { return " << m_options.s.str_pre << " \"" << TableName << "\" " << m_options.s.str_post << "; }" << std::endl;
 			// Create getColumnNames member function. It's needed for sqlite3pp::Table template class
 			myfile << "\tstatic StrType getColumnNames() { return " << m_options.s.str_pre << " \"";
 			for (auto c : columns_with_comma)
 				myfile << c.second << c.first;
+			myfile << "\"" << m_options.s.str_post << "; }" << std::endl;
+			// Create getSelecColumnNames member function. It's needed for sqlite3pp::Table template class
+			myfile << "\tstatic StrType getSelecColumnNames() { return " << m_options.s.str_pre << " \"";
+			for (auto c : columns_with_comma)
+				myfile << c.second << "\\\"" << c.first<< "\\\"" ;
 			myfile << "\"" << m_options.s.str_post << "; }" << std::endl;
 			// Create getStreamData member function. It's needed for sqlite3pp::Table template class
 			myfile << "\ttemplate<class T> void getStreamData( T q ) { q.getter() ";
