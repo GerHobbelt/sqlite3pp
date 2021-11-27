@@ -2,7 +2,7 @@
 	GNU General Public License
 
 	Copyright (C) 2021 David Maisonave (www.axter.com)
-	The RegexAssistant source code is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License.
+	The sqlite3pp_ez source code is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License.
 	This source code is distributed in the hope that it will be useful,	but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 	For usage examples see  https://github.com/David-Maisonave/sqlite3pp_EZ
@@ -376,8 +376,10 @@ namespace sqlite3pp
 	{
 		return CreateAllHeaders(m_options, WhereClause);
 	}
+	static const char TopHeaderCommnetsPrt1[] = "/* This file was automatically generated using [Sqlite3pp_EZ].\nSqlite3pp_EZ Copyright (C) 2021 David Maisonave (http::\\www.axter.com)";
+	static const char TopHeaderCommnetsPrt2[] = "For more details see  https://github.com/David-Maisonave/sqlite3pp_EZ\n*/";
 
-	bool SQLiteClassBuilder::CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, bool AppendToVect)
+	bool SQLiteClassBuilder::CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, std::string FirstColumnName, std::string LastColumnName, bool AppendToVect)
 	{
 		std::ios_base::openmode openMode = m_AppendTableToHeader ? std::ios_base::out | std::ios_base::app : std::ios_base::out;
 		ClassName = m_options.h.header_prefix + TableName + m_options.h.header_postfix;
@@ -391,6 +393,22 @@ namespace sqlite3pp
 		strcpy_s(headerupper, (ClassName + "_H").c_str());
 		_strupr_s(headerupper);
 		HeaderUpper = headerupper;
+		if (!m_options.m.exclude_comments && AppendToVect == true)
+		{
+			myfile << TopHeaderCommnetsPrt1 << std::endl;
+			if (FirstColumnName.empty())
+				FirstColumnName = "ColumnFoo";
+			if (LastColumnName.empty())
+				LastColumnName = "ColumnWiget";
+			myfile << "Example Usage:" << std::endl;
+			myfile << "\t// Exampel #1\n\t\tsqlite3pp::setGlobalDB(\"mydatabase.db\");" << std::endl;
+			myfile << "\t\tsqlite3pp::Table<" << ClassName << "> my_tbl;\n\t\tfor (auto row : my_tbl)\n\t\t\tstd::wcout << row << std::endl;\n" << std::endl;
+
+			myfile << "\t// Exampel #2\n\t\tfor (int i = 0; i < my_tbl.size(); ++i)\n\t\t\tstd::wcout << my_tbl[i].get_" << FirstColumnName << "() << std::endl;\n" << std::endl;
+
+			myfile << "\t// Exampel #3\n\t\tfor (auto r = my_tbl.begin(); r != my_tbl.end(); ++r)\n\t\t\tstd::wcout << r->get_" << LastColumnName << "() << std::endl;\n" << std::endl;
+			myfile << TopHeaderCommnetsPrt2 << std::endl;
+		}
 		// Add includes needed to support specified m_options.str_type
 		myfile << "#ifndef " << HeaderUpper << std::endl;
 		myfile << "#define " << HeaderUpper << std::endl;
@@ -415,7 +433,7 @@ namespace sqlite3pp
 		m_options.h.header_prefix = OrgPrefix;
 		std::ofstream myfile;
 		std::string ClassName, HeaderUpper;
-		if (CreateHeaderPrefix("All_Headers", myfile, ClassName, HeaderUpper, false))
+		if (CreateHeaderPrefix("All_Headers", myfile, ClassName, HeaderUpper, "", "", false))
 		{
 			for (auto s : m_HeadersCreated)
 				myfile << "#include \"" << s << "\"" << std::endl;
@@ -493,15 +511,22 @@ namespace sqlite3pp
 		sqlite3pp::query qry(m_db, QueryStr.c_str());
 		std::vector<std::pair<std::string, std::string> > columns;
 		std::vector<std::pair<std::string, std::string> > columns_with_comma;
+		std::string FirstColumnName;
+		std::string LastColumnName = "get_MyColumnFoo()";
 		for (int i = 0; i < qry.column_count(); ++i)
 		{
 			if (strstr(qry.column_name(i), ":") != NULL) continue;
+
 			columns.push_back(std::pair<std::string, std::string>(qry.column_name(i), GetType(qry.column_decltype(i))));
 			columns_with_comma.push_back(std::pair<std::string, std::string>(qry.column_name(i), i ? ", " : ""));
+			if (FirstColumnName.empty())
+				FirstColumnName = qry.column_name(i);
+			else 
+				LastColumnName = qry.column_name(i);
 		}
 		std::ofstream myfile;
 		std::string ClassName, HeaderUpper;
-		if (!CreateHeaderPrefix(TableName, myfile, ClassName, HeaderUpper))
+		if (!CreateHeaderPrefix(TableName, myfile, ClassName, HeaderUpper, FirstColumnName, LastColumnName))
 			return false;
 		m_ClassNames.push_back(ClassName);
 		////////////////////////////////////////////////////////////////////////////////////////////

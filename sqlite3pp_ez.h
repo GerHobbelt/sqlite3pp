@@ -2,7 +2,7 @@
 	GNU General Public License
 	
 	Copyright (C) 2021 David Maisonave (www.axter.com)
-	The RegexAssistant source code is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License.
+	The sqlite3pp_ez source code is free software. You can redistribute it and/or modify it under the terms of the GNU General Public License.
 	This source code is distributed in the hope that it will be useful,	but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 	# Summary
@@ -324,7 +324,7 @@ namespace sqlite3pp
 			, const std::string &WhereClause
 		);
 		bool ProcessClassCreation(const std::string& ClassName, std::string QueryStr = "");
-		bool CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, bool AppendToVect = true);
+		bool CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, std::string FirstColumnName = "", std::string LastColumnName = "", bool AppendToVect = true);
 	public:
 		// This constructor is best to use when creating a header for all tables in the constructor.  (Headers can also be created by calling CreateHeader or CreateAllHeaders)
 		SQLiteClassBuilder(const std::string& Db_filename						
