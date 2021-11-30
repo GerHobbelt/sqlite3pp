@@ -90,10 +90,11 @@ namespace sqlite3pp
 		friend std::wstring GetDbErrMsgW();
 		friend int GetDbErrNo();
 		friend int GetDbExtErrNo();
-
+		static sqlite3pp::query* CreateQuery(database& db, const std::string& QueryStr);
 
 	protected:
 		static sqlite3pp::database global_db; // To be used as global DB
+		static bool bIsGlblDbOpen; // To be used as global DB
 		static const char TableArg_PreExecuteArg[];
 		static const char TableArg_WhereClauseArg[];
 		static const char TableArg_InsertArg[];
@@ -144,24 +145,43 @@ namespace sqlite3pp
 		const T_STR m_ColumnNames;	// Mainly here for debugging purposes
 		const int m_ColumnCount;	// Mainly here for debugging purposes
 	public:
-		// Constructors
-		Table(PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(global_db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery(  m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, InsertArg(), DbFileNameArg()); }
-		Table(InsertArg insertarg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(global_db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), PreExecuteArg(), insertarg, DbFileNameArg()); }
-		Table(DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(global_db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), PreExecuteArg(), InsertArg(), dbfilenamearg); }
+		// There are 2 constructor sets with each having 4 types of constructs. There are 4 types purely for the sake of convenience. Determine which constructors to use by which arguments are needed.
+		// Set of constructors needing a sqlite3pp::database instance in constructor argument. These constructors automatically populate the object using data from the database db instance.
+		Table(sqlite3pp::database &db, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), InsertArg insertarg = InsertArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) 	:m_db( db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, insertarg, dbfilenamearg); }
 		Table(sqlite3pp::database &db, PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, InsertArg(), DbFileNameArg()); }
 		Table(sqlite3pp::database &db, InsertArg insertarg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), PreExecuteArg(), insertarg, DbFileNameArg()); }
 		Table(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), PreExecuteArg(), InsertArg(), dbfilenamearg); }
-		Table( sqlite3pp::database &db, const VectType &VectTypes ) :m_db( db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
-		Table( const VectType &VectTypes ) :m_db( global_db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
-		Table(WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), InsertArg insertarg = InsertArg(), DbFileNameArg dbfilenamearg = DbFileNameArg())
-			:m_db( global_db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, insertarg, dbfilenamearg); }
-		Table( sqlite3pp::database &db, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), InsertArg insertarg = InsertArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) 
-			:m_db( db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, insertarg, dbfilenamearg); }
 		
+		// Same as above set, but this set uses the single global database instance, and so db does not need to be pass to the constructor. These constructors automatically populate the object using data from the global database instance.
+		Table(WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), InsertArg insertarg = InsertArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()):m_db( global_db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, insertarg, dbfilenamearg); }
+		Table(PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(global_db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery(  m_db, CreateSelectQueryStr(whereclausearg, T_STR()), preexecutearg, InsertArg(), DbFileNameArg()); }
+		Table(InsertArg insertarg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(global_db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), PreExecuteArg(), insertarg, DbFileNameArg()); }
+		Table(DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg()) :m_db(global_db), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, CreateSelectQueryStr(whereclausearg, T_STR()), PreExecuteArg(), InsertArg(), dbfilenamearg); }
+		
+		// Set of constructors which do NOT populate itself using the database.  Instead the constructors takes an argument which is used to automatically populate itself
+		Table(sqlite3pp::database &db, const VectType &VectTypes ) :m_db( db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
+		Table( const VectType &VectTypes ) :m_db( global_db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
+
 		// Public methods
 		const VectType& Get() const { return m_VectType; }
-		void Insert( const VectType& Data ) { for (auto d : Data) Insert(ValueArg(d.GetValues()), T_STR()); }
+		void Insert( bool DeleteAllBeforeInsert = false)
+		{ 
+			if (DeleteAllBeforeInsert)
+				DeleteAll();  // ToDo: Add logic to have delete use where clause if the constructor received one
+			for (auto d : m_VectType)
+				Insert(ValueArg(d.GetValues()), T_STR()); 
+		}
+		void UpdateDb(bool DeleteAllBeforeUpdate = false)
+		{
+			if (DeleteAllBeforeUpdate)
+				DeleteAll(); // ToDo: Add logic to have delete use where clause if the constructor received one
+			for (auto d : m_VectType) 
+				UpdateDb(ValueArg(d.GetValues()), T_STR());
+		}
 		int Execute(const T_STR& strExecute){return m_db.execute(strExecute);}
+		void Insert(const DataType &d) { push_back(d); Insert(ValueArg(d.GetValues()), T_STR()); }
+		void UpdateDb(const DataType &d) { UpdateDb(ValueArg(d.GetValues()), T_STR()); }
+		void DeleteAll(){ DeleteAll(T_STR()); }
 		auto begin() { return m_VectType.begin(); }
 		auto end() { return m_VectType.end(); }
 		size_t size() const { return m_VectType.size(); }
@@ -198,8 +218,12 @@ namespace sqlite3pp
 
 	protected:
 		// Protected methods
-		void Insert(const ValueArg& valuearg, std::string){	m_db.execute("INSERT INTO " + T::getTableName() + " (" + T::getColumnNames() + ") VALUES (" + valuearg.get_Str() + ")");}
-		void Insert(const ValueArg& valuearg, std::wstring)	{m_db.execute(L"INSERT INTO " + T::getTableName() + L" (" + T::getColumnNames() + L") VALUES (" + valuearg.get_Str() + L")");}
+		void Insert(const ValueArg& valuearg, std::string) { m_db.execute("INSERT INTO " + T::getTableName() + " (" + T::getColumnNames() + ") VALUES (" + valuearg.get_Str() + ")"); }
+		void Insert(const ValueArg& valuearg, std::wstring) { m_db.execute(L"INSERT INTO " + T::getTableName() + L" (" + T::getColumnNames() + L") VALUES (" + valuearg.get_Str() + L")"); }
+		void UpdateDb(const ValueArg& valuearg, std::string) { m_db.execute("INSERT OR REPLACE INTO " + T::getTableName() + " (" + T::getColumnNames() + ") VALUES (" + valuearg.get_Str() + ")"); }
+		void UpdateDb(const ValueArg& valuearg, std::wstring) { m_db.execute(L"INSERT OR REPLACE INTO " + T::getTableName() + L" (" + T::getColumnNames() + L") VALUES (" + valuearg.get_Str() + L")"); }
+		void DeleteAll(std::string) { m_db.execute("DELETE FROM  " + T::getTableName()); }
+		void DeleteAll(std::wstring) { m_db.execute(L"DELETE FROM  " + T::getTableName()); }
 		void PopulateVect(sqlite3pp::database &db, sqlite3pp::query &qry )
 		{
 			for ( auto q : qry )

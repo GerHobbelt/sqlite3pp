@@ -138,6 +138,7 @@ namespace sqlite3pp
 	// Added Global functions for global_db usage
 	///////////////////////////////////////////////////////////////////////////
 	database sql_base::global_db;
+	bool sql_base::bIsGlblDbOpen = false;
 	const char sql_base::TableArg_PreExecuteArg[] = "PreExecuteArg";
 	const char sql_base::TableArg_WhereClauseArg[] = "WhereClauseArg";
 	const char sql_base::TableArg_InsertArg[] = "InsertArg";
@@ -146,74 +147,150 @@ namespace sqlite3pp
 
 	void setGlobalDB( const std::string& db_filename )
 	{
-		sql_base::global_db = database( db_filename.c_str() );
+		if (!sql_base::bIsGlblDbOpen)
+		{
+			sql_base::global_db = database(db_filename.c_str());
+			sql_base::bIsGlblDbOpen = true;
+		}
+		else
+			throw database_error("Trying to set Global DB with '" + db_filename + "' before detaching previous connection.");
 	}
 
 	void setGlobalDB( const std::wstring& db_filename )
 	{
-		sql_base::global_db = database(db_filename.c_str());
+		if (!sql_base::bIsGlblDbOpen)
+		{
+			sql_base::global_db = database(db_filename.c_str());
+			sql_base::bIsGlblDbOpen = true;
+		}
+		else
+			throw database_error("Trying to set Global DB with '" + to_string(db_filename.c_str()) + "' before detaching previous connection.");
 	}
 
-	database& getGlobalDB(  )
+	database& getGlobalDB( )
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to get Global DB before it is opened.");
 		return sql_base::global_db;
 	}
 
 	int Execute( const std::string& sql )
 	{
-		return sql_base::global_db.execute(sql);
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to Execute Global DB before it is opened. Query='" + sql + "'");
+		int rc = sql_base::global_db.execute(sql);
+		// ToDo: Add logic here to repart error if rc!=SQLITE_OK
+		return rc;
 	}
 
 	int Execute( const std::wstring& sql )
 	{
-		return sql_base::global_db.execute( sql_base::to_string( sql).c_str() );
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to Execute Global DB before it is opened. Query='" + to_string(sql.c_str()) + "'");
+		int rc = sql_base::global_db.execute( sql_base::to_string( sql).c_str() );
+		// ToDo: Add logic here to repart error if rc!=SQLITE_OK
+		return rc;
 	}
 	int Connect( char const * dbname, int flags, const char * vfs )
 	{
-		return sql_base::global_db.connect(dbname, flags, vfs);
+		if (sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to connect to '" + std::string(dbname) + "' after Global DB is open.");
+		int rc = sql_base::global_db.connect(dbname, flags, vfs);
+		if (SQLITE_OK == rc)
+			sql_base::bIsGlblDbOpen = true;
+		else
+			throw database_error("Connect failed for '" + std::string(dbname) + "'.");
+		return rc;
 	}
 	int Connect( wchar_t const * dbname, int flags, const wchar_t * vfs )
 	{
-		return sql_base::global_db.connect( sql_base::to_string( dbname ).c_str(), flags, sql_base::to_string( vfs ).c_str() );;
+		if (sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to connect to '" + to_string(dbname) + "' after Global DB is open.");
+		int rc = sql_base::global_db.connect( sql_base::to_string( dbname ).c_str(), flags, sql_base::to_string( vfs ).c_str() );;
+		if (SQLITE_OK == rc)
+			sql_base::bIsGlblDbOpen = true;
+		else
+			throw database_error("Connect failed for '" + to_string(dbname) + "'.");
+		return rc;
 	}
 	int Attach( char const * dbname, char const * name )
 	{
-		return  sql_base::global_db.attach(dbname, name);
+		if (sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to attach to '" + std::string(dbname) + "' after Global DB is open.");
+		int rc = sql_base::global_db.attach(dbname, name);
+		if (SQLITE_OK == rc)
+			sql_base::bIsGlblDbOpen = true;
+		else
+			throw database_error("Attach failed for '" + std::string(dbname) + "'.");
+		return rc;
 	}
 	int Attach( wchar_t const * dbname, wchar_t const * name )
 	{
-		return  sql_base::global_db.attach( sql_base::to_string( dbname ).c_str(), sql_base::to_string( name ).c_str() );
+		if (sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to attach to '" + to_string(dbname) + "' after Global DB is open.");
+		int rc = sql_base::global_db.attach( sql_base::to_string( dbname ).c_str(), sql_base::to_string( name ).c_str() );
+		if (SQLITE_OK == rc)
+			sql_base::bIsGlblDbOpen = true;
+		else
+			throw database_error("Attach failed for '" + to_string(dbname) + "'.");
+		return rc;
 	}
 	int Detach( char const * name )
 	{
-		return  sql_base::global_db.detach(name);
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to detached before Global DB is open.");
+		int rc = sql_base::global_db.detach(name);
+		if (SQLITE_OK == rc)
+			sql_base::bIsGlblDbOpen = false;
+		else
+			throw database_error("Attach failed for '" + std::string(name) + "'.");
+		return rc;
 	}
 	int Detach( wchar_t const * name )
 	{
-		return sql_base::global_db.detach( sql_base::to_string(name).c_str() );
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to detached before Global DB is open.");
+		int rc = sql_base::global_db.detach( sql_base::to_string(name).c_str() );
+		if (SQLITE_OK == rc)
+			sql_base::bIsGlblDbOpen = false;
+		else
+			throw database_error("Attach failed for '" + to_string(name) + "'.");
+		return rc;
 	}
 	int Backup( char const * dbname, database & destdb, char const * destdbname, database::backup_handler h, int step_page )
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to use Global DB before it has been opened.");
 		return sql_base::global_db.backup(dbname,destdb,destdbname,h,step_page);
 	}
 	int Backup( wchar_t const * dbname, database & destdb, wchar_t const * destdbname, database::backup_handler h, int step_page )
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			throw database_error("Trying to use Global DB before it has been opened.");
 		return sql_base::global_db.backup( sql_base::to_string( dbname).c_str(), destdb, sql_base::to_string( destdbname).c_str(), h, step_page );
 	}
 	std::string GetDbErrMsg()
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			return "Error: Failed to open global database before using it";
 		return sql_base::global_db.error_msg();
 	}
 	std::wstring GetDbErrMsgW()
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			return L"Error: Failed to open global database before using it";
 		return sql_base::to_wstring(sql_base::global_db.error_msg());
 	}
 	int GetDbErrNo()
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			return -1;
 		return sql_base::global_db.error_code();
 	}
 	int GetDbExtErrNo()
 	{
+		if (!sql_base::bIsGlblDbOpen)
+			return -1;
 		return sql_base::global_db.extended_error_code();
 	}
 
@@ -503,26 +580,40 @@ namespace sqlite3pp
 		}
 		return ProcessClassCreation(TableName, QueryStr);
 	}
+	sqlite3pp::query* sql_base::CreateQuery(database& db, const std::string& QueryStr)
+	{
+		try
+		{
+			return new sqlite3pp::query(db, QueryStr.c_str());
+		}
+		catch (...)
+		{
+			return NULL;
+		}
+		return NULL;
+	}
 
 	bool SQLiteClassBuilder::ProcessClassCreation(const std::string& TableName, std::string QueryStr)
 	{
 		if (QueryStr.empty())
 			QueryStr = "SELECT * FROM \"" + TableName + "\"";
-		sqlite3pp::query qry(m_db, QueryStr.c_str());
+		std::shared_ptr < sqlite3pp::query> qry(sql_base::CreateQuery(m_db, QueryStr));
+		if (!qry)
+			return false;
 		std::vector<std::pair<std::string, std::string> > columns;
 		std::vector<std::pair<std::string, std::string> > columns_with_comma;
 		std::string FirstColumnName;
 		std::string LastColumnName = "get_MyColumnFoo()";
-		for (int i = 0; i < qry.column_count(); ++i)
+		for (int i = 0; i < qry->column_count(); ++i)
 		{
-			if (strstr(qry.column_name(i), ":") != NULL) continue;
+			if (strstr(qry->column_name(i), ":") != NULL) continue;
 
-			columns.push_back(std::pair<std::string, std::string>(qry.column_name(i), GetType(qry.column_decltype(i))));
-			columns_with_comma.push_back(std::pair<std::string, std::string>(qry.column_name(i), i ? ", " : ""));
+			columns.push_back(std::pair<std::string, std::string>(qry->column_name(i), GetType(qry->column_decltype(i))));
+			columns_with_comma.push_back(std::pair<std::string, std::string>(qry->column_name(i), i ? ", " : ""));
 			if (FirstColumnName.empty())
-				FirstColumnName = qry.column_name(i);
+				FirstColumnName = qry->column_name(i);
 			else 
-				LastColumnName = qry.column_name(i);
+				LastColumnName = qry->column_name(i);
 		}
 		std::ofstream myfile;
 		std::string ClassName, HeaderUpper;
@@ -559,7 +650,7 @@ namespace sqlite3pp
 			// Miscellaneous functions
 			if (!m_options.m.exclude_comments)
 				myfile << "\n\t// Miscellaneous functions" << std::endl;
-			myfile << "\tstatic int getColumnCount() { return " << qry.column_count() << "; }" << std::endl;
+			myfile << "\tstatic int getColumnCount() { return " << qry->column_count() << "; }" << std::endl;
 		}
 
 		// Define get function for each data member variable. Always create these functions if member variables are protected.
@@ -673,6 +764,10 @@ namespace sqlite3pp
 		}
 
 		return value; 
+	}
+
+	database_error::database_error(const std::string& msg) : std::runtime_error(msg.c_str())
+	{
 	}
 
 #endif// !SQLITE3PP_NO_UNICODE

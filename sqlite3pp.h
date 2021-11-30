@@ -177,6 +177,7 @@ namespace sqlite3pp
   {
    public:
 	explicit database_error(char const* msg);
+	explicit database_error(const std::string& msg);
 	explicit database_error(database& db);
   };
 
@@ -361,7 +362,8 @@ namespace sqlite3pp
 
 	  query_iterator& operator++();
 
-	  value_type operator*() const;
+//#pragma warning(disable : 4996)
+	  sqlite3pp::query::rows operator*() const;
 
 	 private:
 	  query* cmd_;
