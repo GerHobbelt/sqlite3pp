@@ -363,7 +363,7 @@ namespace sqlite3pp
 	  query_iterator& operator++();
 
 //#pragma warning(disable : 4996)
-	  sqlite3pp::query::rows operator*() const;
+	  query::rows operator*() const;
 
 	 private:
 	  query* cmd_;

@@ -141,7 +141,6 @@ namespace sqlite3pp
 	bool sql_base::bIsGlblDbOpen = false;
 	const char sql_base::TableArg_PreExecuteArg[] = "PreExecuteArg";
 	const char sql_base::TableArg_WhereClauseArg[] = "WhereClauseArg";
-	const char sql_base::TableArg_InsertArg[] = "InsertArg";
 	const char sql_base::TableArg_DbFileNameArg[] = "DbFileNameArg";
 	const char sql_base::TableArg_ValueArg[] = "ValueArg";
 
@@ -353,7 +352,7 @@ namespace sqlite3pp
 		{
 			if (strcmp("INTEGER", str) == 0 || strcmp("INT", str) == 0 || strcmp("TINYINT", str) == 0 || strcmp("SMALLINT", str) == 0 || strcmp("MEDIUMINTSMALLINT", str) == 0 || strcmp("BIGINT", str) == 0 || strcmp("UNSIGNED BIG INT", str) == 0 || strcmp("INT2", str) == 0 || strcmp("INT8", str) == 0)
 				return "int";
-			if (strcmp("REAL", str) == 0 || strcmp("DOUBLE", str) == 0 || strcmp("DOUBLE PRECISION", str) == 0 || strcmp("FLOAT", str) == 0 || strncmp("DECIMAL", str, 7) == 0 || strcmp("BOOLEAN", str) == 0 || strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0 || strcmp("NUMERIC", str) == 0)
+			if (strcmp("REAL", str) == 0 || strcmp("DOUBLE", str) == 0 || strcmp("DOUBLE PRECISION", str) == 0 || strcmp("FLOAT", str) == 0 || strncmp("DECIMAL", str, 7) == 0 || strcmp("BOOLEANL", str) == 0 || strcmp("BOOLEAN", str) == 0 || strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0 || strcmp("NUMERIC", str) == 0)
 				return "double";
 
 			if (m_options.m.use_basic_types_only)
@@ -381,7 +380,7 @@ namespace sqlite3pp
 				return "Smallint";
 			if (strcmp("MEDIUMINTSMALLINT", str) == 0)		
 				return "Mediumint";
-			if (strcmp("BOOLEAN", str) == 0)				
+			if (strcmp("BOOLEAN", str) == 0 || strcmp("BOOLEANL", str) == 0)
 				return "Boolean";
 			if (strcmp("BIGINT", str) == 0)					
 				return "Bigint";
@@ -436,10 +435,10 @@ namespace sqlite3pp
 		return option;
 	}
 
-	void SQLiteClassBuilder::Init(const std::string & TableOrView_name, const std::string & WhereClause)
+	void SQLiteClassBuilder::Init(const std::string & TableOrView_name, const std::string & AndWhereClause)
 	{
 		if (TableOrView_name == CreateHeaderForAllTables)
-			CreateAllHeaders(m_options, WhereClause);
+			CreateAllHeaders(m_options, AndWhereClause);
 		else if (!TableOrView_name.empty() && TableOrView_name != Nill)
 			CreateHeader(TableOrView_name);
 	}
@@ -449,9 +448,9 @@ namespace sqlite3pp
 		m_db.disconnect();
 	}
 
-	bool SQLiteClassBuilder::CreateAllHeaders(const std::string &WhereClause)
+	bool SQLiteClassBuilder::CreateAllHeaders(const std::string &AndWhereClause)
 	{
-		return CreateAllHeaders(m_options, WhereClause);
+		return CreateAllHeaders(m_options, AndWhereClause);
 	}
 	static const char TopHeaderCommnetsPrt1[] = "/* This file was automatically generated using [Sqlite3pp_EZ].\nSqlite3pp_EZ Copyright (C) 2021 David Maisonave (http::\\www.axter.com)";
 	static const char TopHeaderCommnetsPrt2[] = "For more details see  https://github.com/David-Maisonave/sqlite3pp_EZ\n*/";
@@ -494,14 +493,14 @@ namespace sqlite3pp
 		return true;
 	}
 
-	bool SQLiteClassBuilder::CreateAllHeaders(const TblClassOptions &strtype, const std::string &WhereClause)
+	bool SQLiteClassBuilder::CreateAllHeaders(const TblClassOptions &strtype, const std::string &AndWhereClause)
 	{
 		m_HeadersCreated.clear();
 		m_ClassNames.clear();
 		m_options = strtype;
 		const std::string OrgPrefix = m_options.h.header_prefix;
 		using SQLiteMaster = Table<sqlite_master>;
-		SQLiteMaster tbl(m_db, SQLiteMaster::WhereClauseArg("where (type = 'table' or type = 'view') " + WhereClause));
+		SQLiteMaster tbl(m_db, WhereClauseArg(T_("where (type = 'table' or type = 'view') ")  + sql_base::to_tstring(AndWhereClause)) );
 		for (auto t : tbl)
 		{
 			m_options.h.header_prefix = OrgPrefix + t.type + "_";
@@ -741,26 +740,41 @@ namespace sqlite3pp
 
 	std::wstring query::rows::get(int idx, const std::wstring&) const
 	{
+#ifdef SQLITE3PP_ALLOW_NULL_STRING_RETURN
+		bool AllowNullStringReturn = true;
+#else
+		bool AllowNullStringReturn = false;
+#endif  // !SQLITE3PP_ALLOW_NULL_STRING_RETURN
 		std::wstring value;
 		const char * strtype = sqlite3_column_decltype(stmt_, idx);
-		wchar_t const* Val = get(idx, (wchar_t const*)0);
-#ifndef SQLITE3PP_ALLOW_NULL_STRING_RETURN
-		if (!Val)
-			return value;
-#endif  // !SQLITE3PP_ALLOW_NULL_STRING_RETURN
-
-		if (!strtype)
-		{
-			value = sql_base::to_wstring((char*)(Val));
-		}
-		else if (strcmp(strtype, "TEXT") == 0 || strncmp("CHARACTER", strtype, 9) == 0 || strncmp("VARYING CHARACTER", strtype, 17) == 0 || strncmp("VARCHAR", strtype, 7) == 0)
-			value = sql_base::to_wstring((char*)(Val));
+		bool GetUnicodeString = false;
+		if (!strtype || strcmp(strtype, "TEXT") == 0 || strncmp("CHARACTER", strtype, 9) == 0 || strncmp("VARYING CHARACTER", strtype, 17) == 0 || strncmp("VARCHAR", strtype, 7) == 0)
+			GetUnicodeString = false;
 		else if ( strncmp("NCHAR", strtype, 5) == 0 || strncmp("NVARCHAR", strtype, 8) == 0 || strncmp("NATIVE CHARACTER", strtype, 16) == 0)
-			value = Val;
+			GetUnicodeString = true;
 		else
 		{
 			assert(0);// Code should NOT get here.  If it does something went wrong.
-			value = sql_base::to_wstring((char*)(Val)); // Handle it gracefully in release mode.
+			GetUnicodeString = false;
+		}
+
+		union
+		{ // This union is here for debugging purposes.
+			wchar_t const* Val_w;
+			char const* Val_a;
+			const void* Val;
+		};
+		if (GetUnicodeString)
+		{
+			Val_w = get(idx, (wchar_t const*)0);
+			if (Val_w || AllowNullStringReturn)
+				value = Val_w;
+		}
+		else
+		{
+			Val_a = get(idx, (char const*)0);
+			if (Val_a || AllowNullStringReturn)
+				value = sql_base::to_wstring(Val_a);
 		}
 
 		return value; 

@@ -546,7 +546,7 @@ namespace sqlite3pp
 	return *this;
   }
 
-  query::query_iterator::value_type query::query_iterator::operator*() const
+  query::rows query::query_iterator::operator*() const
   {
 	return rows(cmd_->stmt_);
   }
