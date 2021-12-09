@@ -293,6 +293,7 @@ namespace sqlite3pp
 		return sql_base::global_db.extended_error_code();
 	}
 
+	////////////////////////////////////////////////////////////////////////////////////////////
 	// sqlite_master is used when querying all the tables in a SQLite DB
 	class sqlite_master
 	{
@@ -309,7 +310,20 @@ namespace sqlite3pp
 		StrType tbl_name;
 		StrType rootpage;
 		StrType sql;
+		template<class T> T& OStream(T& t) const
+		{
+			//t.os << t.str(Ext) << t.d << t.str(PrgLangName) << t.d << t.str(ProfileName) << t.d << t.str(ExecType);
+			return t;
+		}
+		friend std::ostream& operator<<(std::ostream& os, const sqlite_master& t);
+		friend std::wostream& operator<<(std::wostream& os, const sqlite_master& t);
+		static StrType Delimiter() { return  ","; }
+
 	};
+	// Part of sqlite3pp::TableOStream interface. Required if using TableOStream container or operator<<(). To exclude TableOStream interface, set exclude_ostream_operator to true when creating this class through SQLiteClassBuilder.
+	std::ostream& operator<<(std::ostream& os, const sqlite_master& t) { sqlite3pp::ostream_a o(os, t.Delimiter()); return t.OStream(o).os; }
+	std::wostream& operator<<(std::wostream& os, const sqlite_master& t) { sqlite3pp::ostream_w o(os, t.Delimiter());  return t.OStream(o).os; }
+
 
 	// Predefined string options
 	const StrOptions SQLiteClassBuilder::strOpt_std_string  = { "std::string", "", "", "#include <string>"  };
@@ -321,10 +335,10 @@ namespace sqlite3pp
 	const MiscOptions SQLiteClassBuilder::MiscOpt_min = { ",", true, true, true, true, true, false, false, true, true };
 	const MiscOptions SQLiteClassBuilder::MiscOpt_var = { ",", true, true, true, true, true, true, false, true, true };
 	// Default settings for HeaderOpt
-	const HeaderOpt SQLiteClassBuilder::HeaderDefaultOpt = { "SQL\\", "sql_", "" };
+	const HeaderOpt SQLiteClassBuilder::HeaderDefaultOpt = { "SQL\\", "sql_", "", "h", "sqlite3pp_ez.h" };
 
 	const char *SQLiteClassBuilder::Nill = "#NILL#";
-	const char *SQLiteClassBuilder::CreateHeaderForAllTables = "%CreateHeaderForAllTables%";
+	const char *SQLiteClassBuilder::CreateHeaderForAllTables = "%_CreateHeaderForAllTables_%";
 
 	std::string SQLiteClassBuilder::GetType(const char* str_org)
 	{
@@ -459,7 +473,7 @@ namespace sqlite3pp
 	{
 		std::ios_base::openmode openMode = m_AppendTableToHeader ? std::ios_base::out | std::ios_base::app : std::ios_base::out;
 		ClassName = m_options.h.header_prefix + TableName + m_options.h.header_postfix;
-		const std::string HeaderFileName = m_options.h.dest_folder + ClassName + ".h";
+		const std::string HeaderFileName = m_options.h.dest_folder + ClassName + "." + m_options.h.file_type;
 		myfile.open(HeaderFileName.c_str(), openMode);
 		if (!myfile.is_open())
 			return false;
@@ -476,7 +490,7 @@ namespace sqlite3pp
 				FirstColumnName = "ColumnFoo";
 			if (LastColumnName.empty())
 				LastColumnName = "ColumnWiget";
-			myfile << "Example Usage:" << std::endl;
+			myfile << "Example Usage:\t\t(Using sqlite3pp::Table container)" << std::endl;
 			myfile << "\t// Exampel #1\n\t\tsqlite3pp::setGlobalDB(\"mydatabase.db\");" << std::endl;
 			myfile << "\t\tsqlite3pp::Table<" << ClassName << "> my_tbl;\n\t\tfor (auto row : my_tbl)\n\t\t\tstd::wcout << row << std::endl;\n" << std::endl;
 
@@ -489,6 +503,8 @@ namespace sqlite3pp
 		myfile << "#ifndef " << HeaderUpper << std::endl;
 		myfile << "#define " << HeaderUpper << std::endl;
 		myfile << m_options.s.str_include << std::endl;
+		if (m_options.h.header_include.size())
+			myfile << "#include \"" << m_options.h.header_include << "\"" << std::endl;
 
 		return true;
 	}
@@ -499,8 +515,14 @@ namespace sqlite3pp
 		m_ClassNames.clear();
 		m_options = strtype;
 		const std::string OrgPrefix = m_options.h.header_prefix;
-		using SQLiteMaster = Table<sqlite_master>;
+		using SQLiteMaster = TableOStream<sqlite_master>;
 		SQLiteMaster tbl(m_db, WhereClauseArg(T_("where (type = 'table' or type = 'view') ")  + sql_base::to_tstring(AndWhereClause)) );
+		
+		// ToDo: Comment out the next 2 lines of code after testing
+		std::ofstream ofs("data.csv", std::ofstream::out);
+		ofs << tbl;
+		std::cout << tbl;
+
 		for (auto t : tbl)
 		{
 			m_options.h.header_prefix = OrgPrefix + t.type + "_";
@@ -594,6 +616,7 @@ namespace sqlite3pp
 
 	bool SQLiteClassBuilder::ProcessClassCreation(const std::string& TableName, std::string QueryStr)
 	{
+		const char* CommentSection = "////////////////////////////////////////////////////////////////////////////////////////////";
 		if (QueryStr.empty())
 			QueryStr = "SELECT * FROM \"" + TableName + "\"";
 		std::shared_ptr < sqlite3pp::query> qry(sql_base::CreateQuery(m_db, QueryStr));
@@ -627,24 +650,47 @@ namespace sqlite3pp
 		if (!m_options.m.exclude_table_interface)
 		{
 			if (!m_options.m.exclude_comments)
+				myfile << "\n\t// Constructors" << std::endl;
+			// These constructors are only useful if method setData is created.
+			myfile << "\t" << ClassName << "() {}";  // Allow default constructor to still work
+			if (!m_options.m.exclude_comments)
+				myfile << " // Default constructor";
+			myfile << std::endl;
+			myfile << "\ttemplate <class T> " << ClassName << "(const T &t) { setData(t); }"; // This constructor allows data transfer from different tables/views having same data types and column names
+			if (!m_options.m.exclude_comments)
+				myfile << " // Allows data input from different (or same) tables/views having the same data types and column names";
+			myfile << std::endl;
+
+			if (!m_options.m.exclude_comments)
 				myfile << "\n\t// getTableName, getColumnNames, getSelecColumnNames, and getStreamData are required for sqlite3pp::Table template class" << std::endl;
-			// Create getTableName member function. It's needed for sqlite3pp::Table template class
+			
+			// Create getTableName member function. Needed for sqlite3pp::Table template class
 			myfile << "\tstatic StrType getTableName() { return " << m_options.s.str_pre << " \"" << TableName << "\" " << m_options.s.str_post << "; }" << std::endl;
-			// Create getColumnNames member function. It's needed for sqlite3pp::Table template class
+			
+			// Create getColumnNames member function. Needed for sqlite3pp::Table template class
 			myfile << "\tstatic StrType getColumnNames() { return " << m_options.s.str_pre << " \"";
 			for (auto c : columns_with_comma)
 				myfile << c.second << c.first;
 			myfile << "\"" << m_options.s.str_post << "; }" << std::endl;
-			// Create getSelecColumnNames member function. It's needed for sqlite3pp::Table template class
+			
+			// Create getSelecColumnNames member function. Needed for sqlite3pp::Table template class
 			myfile << "\tstatic StrType getSelecColumnNames() { return " << m_options.s.str_pre << " \"";
 			for (auto c : columns_with_comma)
 				myfile << c.second << "\\\"" << c.first<< "\\\"" ;
 			myfile << "\"" << m_options.s.str_post << "; }" << std::endl;
-			// Create getStreamData member function. It's needed for sqlite3pp::Table template class
+			
+			// Create getStreamData member function. Needed for sqlite3pp::Table template class
 			myfile << "\ttemplate<class T> void getStreamData( T q ) { q.getter() ";
 			for (auto c : columns)
 				myfile << " >> " << c.first;
 			myfile << ";}" << std::endl;
+
+			// Create setData member function. Used to transfer data from different tables/views having same data types and column names
+			myfile << "\ttemplate <class T> void setData(const T &t) // Used to transfer data from different tables/views having same data types and column names\n\t{" << std::endl;
+			for (auto c : columns)
+				myfile << "\t\t" << c.first << " = t.get_" << c.first << "();" << std::endl;
+			myfile << "\t}" << std::endl;
+
 
 			// Miscellaneous functions
 			if (!m_options.m.exclude_comments)
@@ -682,11 +728,12 @@ namespace sqlite3pp
 		for (auto c : columns)
 			myfile << "\t" << c.second << " " << c.first << ";" << std::endl;
 
-		const char* OperatorStreamComment = "// Optional logic for operator<<(). Set exclude_ostream_operator to true to exclude operator<<() logic when creating this class through SQLiteClassBuilder.\n";
+		const std::string OperatorStreamComment1 = "/* sqlite3pp::TableOStream container interface.\n\tFunctions OStream(), operator<<(), and Delimiter() are required when using the sqlite3pp::TableOStream container.\n\tExample Usage:\t\t(Using sqlite3pp::TableOStream container)\n\t\t\tTableOStream<" + ClassName + "> tbl(DbFileNameArg(\"mydatabase.db\"));\n\t\t\ttbl.setDelimit(\"|\"); // Change delimiter\n\t\t\tstd::cout << tbl; // Send data to screen with the changed delimiter\n\n\t\t\tstd::ofstream ofs (\"data.csv\", std::ofstream::out);\n\t\t\ttbl.setDelimit(\",\"); // Change delimiter\n\t\t\tofs << tbl; // Write data to a CSV file using the changed \",\" delimiter.\n\n\t\t\ttbl.out(std::cout); // Send data to screen using out() member function.\n\tTo exclude TableOStream interface, set exclude_ostream_operator to true when creating this class using SQLiteClassBuilder.\n\t*/\n";
+		const char* OperatorStreamComment2 = "// sqlite3pp::TableOStream container interface.\n";
 		if (m_options.m.exclude_ostream_operator != true)
 		{
 			if (!m_options.m.exclude_comments)
-				myfile << "\n\t" << OperatorStreamComment;
+				myfile << "\n\t" <<CommentSection << "\n\t" << OperatorStreamComment1;
 			////////////////////////////////////////////////////////////////////////////////////////////
 			// Create function OStream
 			myfile << "\ttemplate<class T> T& OStream(T& t) const\n\t{\n\t\tt.os";
@@ -707,6 +754,8 @@ namespace sqlite3pp
 			myfile << "\tfriend std::wostream& operator<<(std::wostream& os, const " << ClassName << "& t);" << std::endl;
 			// Create Delimit member function. It's needed for operator<<
 			myfile << "\tstatic StrType Delimiter() { return " << m_options.s.str_pre << " \"" << m_options.m.delimiter << "\" " << m_options.s.str_post << "; }" << std::endl;
+			if (!m_options.m.exclude_comments)
+				myfile << "\t" << CommentSection << std::endl;
 		}
 
 
@@ -717,7 +766,7 @@ namespace sqlite3pp
 		if (m_options.m.exclude_ostream_operator != true)
 		{
 			if (!m_options.m.exclude_comments)
-				myfile << OperatorStreamComment;
+				myfile << OperatorStreamComment2;
 			myfile << "std::ostream& operator<<(std::ostream& os, const " << ClassName << "& t) { sqlite3pp::ostream_a o(os, t.Delimiter()); return t.OStream(o).os; }" << std::endl;
 			myfile << "std::wostream& operator<<(std::wostream& os, const " << ClassName << "& t) { sqlite3pp::ostream_w o(os, t.Delimiter());  return t.OStream(o).os; }" << std::endl;
 		}

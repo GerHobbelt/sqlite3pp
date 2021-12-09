@@ -102,6 +102,29 @@ namespace sqlite3pp
 	};
 	
 
+	////////////////////////////////////////////////////////////////////////////////////////////
+	// ostream_w, ostream_a, to_string, and to_wstring are used to help out stream of different charater type.
+	std::string to_string(const wchar_t* src);
+	std::wstring to_wstring(const char* src);
+	struct ostream_w
+	{
+		std::wostream &os;
+		const std::wstring d; // Delimiter
+		ostream_w(std::wostream &o, const std::string& sep) :os(o), d(to_wstring(sep.c_str())) {}
+		ostream_w(std::wostream &o, const std::wstring& sep) :os(o), d(sep) {}
+		std::wstring str(const std::string& str) const { return to_wstring(str.c_str()); }
+		inline std::wstring str(const std::wstring& str) const { return str; }
+	};
+	struct ostream_a
+	{
+		std::ostream &os;
+		const std::string d; // Delimiter
+		ostream_a(std::ostream &o, const std::string& sep) :os(o), d(sep) {}
+		ostream_a(std::ostream &o, const std::wstring& sep) :os(o), d(to_string(sep.c_str())) {}
+		inline std::string str(const std::string& str) const { return str; }
+		std::string str(const std::wstring& str) const { return to_string(str.c_str()); }
+	};
+
 	template <char const *TypeName, class T_STR = sqlite3pp::tstring>
 	class TableArg
 	{
@@ -116,28 +139,29 @@ namespace sqlite3pp
 	using WhereClauseArg = TableArg<sql_base::TableArg_WhereClauseArg>; // Use this argument to add a where clause when querying the table/view
 	using DbFileNameArg = TableArg<sql_base::TableArg_DbFileNameArg>; // Use this argument to open the specified database file
 
-	class TableBase : public sql_base
+	class TableBase
 	{
 	public:
-		virtual std::ostream& out(std::ostream& os) const = 0;
-		virtual std::wostream& out(std::wostream& os) const = 0;
 		virtual sqlite3pp::tstring GetTableName() const = 0;
 		virtual sqlite3pp::tstring GetColumnNames() const = 0;
 		virtual int GetColumnCount() const = 0;
 	};
 
-	template <class T, class PARENT_TYPE = T>  // Having ability to change PARENT_TYPE to a base class allows for merging queries (like a union, but faster)
-	class Table : public TableBase
+	template <class T
+		, class T_PARENT = T // Having ability to change T_PARENT to a base class allows for merging queries (like a union, but faster)
+		, class TABLEBASE = TableBase // Used by TableStream class in order to include stream out methods.
+	>  
+	class Table : public TABLEBASE, sql_base
 	{
 	public:
 		// Defined types to be used
 		using T_STR = typename T::StrType; // Allows Table class to work with different string types (std::string, std::wstring, sqlite3pp::tstring)
-		using DataType = PARENT_TYPE;
+		using DataType = T_PARENT;
 		using VectType = std::vector<DataType>;
 		using ValueArg = TableArg<TableArg_ValueArg, T_STR>;
 
 
-	private:
+	protected:
 		// All member variables
 		VectType m_VectType;
 		const PreExecuteArg		m_PreExecute;	// Mainly here for debugging purposes
@@ -151,23 +175,45 @@ namespace sqlite3pp
 	public:
 		// There are 2 constructor sets with each having 4 types of constructs. There are 4 types purely for the sake of convenience. Determine which constructors to use by which arguments are needed.
 		// Set of constructors needing a sqlite3pp::database instance in constructor argument. These constructors automatically populate the object using data from the database db instance.
-		Table(sqlite3pp::database &db, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) 	:m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db( db ), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
-		Table(sqlite3pp::database &db, PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
-		Table(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery(m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
-		Table(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, PreExecuteArg preexecutearg = PreExecuteArg(), WhereClauseArg whereclausearg = WhereClauseArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery(m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(sqlite3pp::database &db, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) 	:m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db( db ), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(sqlite3pp::database &db, PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery(m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, PreExecuteArg preexecutearg = PreExecuteArg(), WhereClauseArg whereclausearg = WhereClauseArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery(m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
 
 		// Same as above set, but this set uses the single global database instance, and so db does not need to be pass to the constructor. These constructors automatically populate the object using data from the global database instance.
-		Table(WhereClauseArg whereclausearg = WhereClauseArg()	, PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()):m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db( global_db ), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
-		Table(PreExecuteArg preexecutearg						, WhereClauseArg whereclausearg = WhereClauseArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(global_db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery(  m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
-		Table(DbFileNameArg dbfilenamearg						, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(global_db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
-		Table(DbFileNameArg dbfilenamearg						, PreExecuteArg preexecutearg = PreExecuteArg(), WhereClauseArg whereclausearg = WhereClauseArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(global_db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { PrepareQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(WhereClauseArg whereclausearg = WhereClauseArg()	, PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()):m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db( global_db ), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(PreExecuteArg preexecutearg						, WhereClauseArg whereclausearg = WhereClauseArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(global_db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery(  m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(DbFileNameArg dbfilenamearg						, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(global_db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
+		Table(DbFileNameArg dbfilenamearg						, PreExecuteArg preexecutearg = PreExecuteArg(), WhereClauseArg whereclausearg = WhereClauseArg()) :m_PreExecute(preexecutearg), m_WhereClause(whereclausearg), m_DbFileName(dbfilenamearg), m_db(global_db), m_InitQuery(CreateSelectQueryStr(whereclausearg, T_STR())), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { ExecuteQuery( m_db, m_InitQuery, preexecutearg, dbfilenamearg); }
 		
 		// Set of constructors which do NOT populate itself using the database.  Instead the constructors takes an argument which is used to automatically populate itself
 		Table(sqlite3pp::database &db, const VectType &VectTypes ) :m_db( db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
 		Table( const VectType &VectTypes ) :m_db( global_db ), m_TableName(T::getTableName()), m_ColumnNames(T::getColumnNames()), m_ColumnCount(T::getColumnCount()) { for ( auto v : VectTypes )  m_VectType.push_back( v ); }
 
-		// Public methods
+		//////////////////////////////////////////////////////////////////////////////////////////////////////
+		// Start Section:  Methods to get or set data in memory
 		const VectType& Get() const { return m_VectType; }
+		const DataType& operator[]( int i ) { return m_VectType[i]; }
+		auto begin() { return m_VectType.begin(); }
+		auto end() { return m_VectType.end(); }
+		void push_back( const DataType &datatype ) { return m_VectType.push_back( datatype ); }
+		void append( const VectType &vecttype ) { return m_VectType.push_back( vecttype ); }
+		size_t size() const { return m_VectType.size(); }
+		template <class TVECT> void addData(const TVECT &tvect) // Used to transfer data from different tables/views having same data types and column names
+		{
+			for (auto i : tvect)
+			{
+				DataType datatype;
+				datatype.setData(i);
+				m_VectType.push_back(datatype);
+			}
+		}
+		// End Section: Methods to get or set data in memory
+		//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+		//////////////////////////////////////////////////////////////////////////////////////////////////////
+		// Start Section: SQL action methods
 		void Insert( bool DeleteAllBeforeInsert = false)
 		{ 
 			if (DeleteAllBeforeInsert)
@@ -186,40 +232,25 @@ namespace sqlite3pp
 		void Insert(const DataType &d) { push_back(d); Insert(ValueArg(d.GetValues()), T_STR()); }
 		void UpdateDb(const DataType &d) { UpdateDb(ValueArg(d.GetValues()), T_STR()); }
 		void DeleteAll(){ DeleteAll(T_STR()); }
-		auto begin() { return m_VectType.begin(); }
-		auto end() { return m_VectType.end(); }
-		size_t size() const { return m_VectType.size(); }
-		const DataType& operator[]( int i ) { return m_VectType[i]; }
-		void push_back( const DataType &datatype ) { return m_VectType.push_back( datatype ); }
-		void append( const VectType &vecttype ) { return m_VectType.push_back( vecttype ); }
 		std::string CreateSelectQueryStr(WhereClauseArg whereclausearg, std::string) { return "SELECT " + T::getSelecColumnNames() + " FROM \"" + T::getTableName() + "\" " + to_string(whereclausearg.get_Str().c_str()); }
 		std::wstring CreateSelectQueryStr(WhereClauseArg whereclausearg, std::wstring) { return L"SELECT " + T::getSelecColumnNames() + L" FROM \"" + T::getTableName() + L"\" " + to_wstring(whereclausearg.get_Str().c_str()); }
+		void ReQuery()
+		{
+			m_VectType.clear();
+			ExecuteQuery(m_db, m_InitQuery, m_PreExecute, m_DbFileName);
+		}
+		// End Section: SQL action methods
+		//////////////////////////////////////////////////////////////////////////////////////////////////////
 		
-		// Use this set of functions with a table instance
+		// Use these set of functions with a table instance
 		virtual sqlite3pp::tstring GetTableName() const { return to_tstring(m_TableName); }
 		virtual sqlite3pp::tstring GetColumnNames() const { return to_tstring(m_ColumnNames); }
 		virtual int GetColumnCount() const { return m_ColumnCount; }
 		
-		// Use this set of functions when there's NO table instance
+		// Use these set of functions when there's NO table instance
 		static T_STR getTableName() { return T::getTableName(); }
 		static T_STR getColumnNames() { return T::getColumnNames(); }
 		static int getColumnCount() { return T::getColumnCount(); }
-
-
-		virtual std::ostream& out(std::ostream& os) const
-		{
-			//for (auto d : m_VectType)
-			//	os << d << std::endl;
-			return os;
-		}
-
-		virtual std::wostream& out(std::wostream& os) const
-		{
-			//for (auto d : m_VectType)
-			//	os << d << std::endl;
-			return os;
-		}
-
 	protected:
 		// Protected methods
 		void Insert(const ValueArg& valuearg, std::string) { m_db.execute("INSERT INTO " + T::getTableName() + " (" + T::getColumnNames() + ") VALUES (" + valuearg.get_Str() + ")"); }
@@ -237,7 +268,7 @@ namespace sqlite3pp
 				m_VectType.push_back( temp_var );
 			}
 		}
-		void PrepareQuery(sqlite3pp::database &db, const T_STR& strQuery, PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg())
+		void ExecuteQuery(sqlite3pp::database &db, const T_STR& strQuery, PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg())
 		{
 			if (!dbfilenamearg.get_Str().empty())
 				db = database(dbfilenamearg.get_Str().c_str());
@@ -248,28 +279,68 @@ namespace sqlite3pp
 		}
 	};
 
-	////////////////////////////////////////////////////////////////////////////////////////////
-	// ostream_w, ostream_a, to_string, and to_wstring are used to help out stream of different charater type.
-	std::string to_string(const wchar_t* src);
-	std::wstring to_wstring(const char* src);
-	struct ostream_w
+
+	class TableOStreamBase : public TableBase
 	{
-		std::wostream &os;
-		const std::wstring d; // Delimiter
-		ostream_w(std::wostream &o, const std::string& sep) :os(o), d(to_wstring(sep.c_str())) {}
-		ostream_w(std::wostream &o, const std::wstring& sep) :os(o), d(sep){}
-		std::wstring str(const std::string& str) const { return to_wstring(str.c_str()); }
-		inline std::wstring str(const std::wstring& str) const { return str; }
+	public:
+		virtual std::ostream& out(std::ostream& os) const = 0;
+		virtual std::wostream& out(std::wostream& os) const = 0;
 	};
-	struct ostream_a
+
+	// In order to use TableOStream, the T class must have OStream interface.
+	template <class T
+		, class T_PARENT = T // Having ability to change T_PARENT to a base class allows for merging queries (like a union, but faster)
+		, class TABLEOSTREAMBASE = TableOStreamBase
+	>
+	class TableOStream : public Table<T, T_PARENT, TABLEOSTREAMBASE>
 	{
-		std::ostream &os;
-		const std::string d; // Delimiter
-		ostream_a(std::ostream &o, const std::string& sep) :os(o), d(sep) {}
-		ostream_a(std::ostream &o, const std::wstring& sep) :os(o), d(to_string(sep.c_str())) {}
-		inline std::string str(const std::string& str) const { return str; }
-		std::string str(const std::wstring& str) const { return to_string(str.c_str()); }
+	public:
+		using TABLE = Table<T, T_PARENT, TABLEOSTREAMBASE>;
+
+		// See sqlite3pp::Table class for details on these constructors
+		TableOStream(sqlite3pp::database &db, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()): TABLE(db, whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()){}
+		TableOStream(sqlite3pp::database &db, PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) : TABLE(db, whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg()) : TABLE(db, whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(sqlite3pp::database &db, DbFileNameArg dbfilenamearg, PreExecuteArg preexecutearg = PreExecuteArg(), WhereClauseArg whereclausearg = WhereClauseArg()) : TABLE(db, whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) : TABLE(whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(PreExecuteArg preexecutearg, WhereClauseArg whereclausearg = WhereClauseArg(), DbFileNameArg dbfilenamearg = DbFileNameArg()) : TABLE(whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(DbFileNameArg dbfilenamearg, WhereClauseArg whereclausearg = WhereClauseArg(), PreExecuteArg preexecutearg = PreExecuteArg()) : TABLE(whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(DbFileNameArg dbfilenamearg, PreExecuteArg preexecutearg = PreExecuteArg(), WhereClauseArg whereclausearg = WhereClauseArg()) : TABLE(whereclausearg, preexecutearg, dbfilenamearg), Delimit(T::Delimiter()) {}
+		TableOStream(sqlite3pp::database &db, const TABLE::VectType &VectTypes) : TABLE(db, VectTypes), Delimit(T::Delimiter()) {}
+		TableOStream(const TABLE::VectType &VectTypes) : TABLE(VectTypes), Delimit(T::Delimiter()) {}
+
+		void setDelimit(const TABLE::T_STR &delimit) { Delimit = delimit; }
+		const TABLE::T_STR & getDelimit() const { return Delimit; }
+		virtual std::ostream& out(std::ostream& os) const
+		{
+			sqlite3pp::ostream_a o(os, Delimit);
+			for (auto d : TABLE::m_VectType)
+				d.OStream(o);
+			return os;
+		}
+		virtual std::wostream& out(std::wostream& os) const
+		{
+			sqlite3pp::ostream_w o(os, Delimit);
+			for (auto d : TABLE::m_VectType)
+				d.OStream(o);
+			return os;
+		}
+	protected:
+		TABLE::T_STR Delimit;
 	};
+
+	template <class T, class T_PARENT = T, class TABLEOSTREAMBASE = TableOStreamBase>	
+	std::ostream& operator<<(std::ostream& os, const TableOStream<T, T_PARENT, TABLEOSTREAMBASE>  & t)
+	{
+		return t.out(os);
+	}
+
+	template <class T, class T_PARENT = T, class TABLEOSTREAMBASE = TableOStreamBase>
+	std::wostream& operator<<(std::wostream& os, const TableOStream<T, T_PARENT, TABLEOSTREAMBASE> & t)
+	{
+		return t.out(os);
+	}
+
 
 	std::wostream& operator<<(std::wostream& os, const sqlite3pp::Blob& t);
 	std::ostream& operator<<(std::ostream& os, const sqlite3pp::Blob& t);
@@ -311,6 +382,8 @@ namespace sqlite3pp
 		std::string dest_folder;		// Can be empty, but if folder is specified, it must end with "\\".  Otherwise it will be treated as part of the file name.
 		std::string header_prefix;		// Can be empty, or can specify a desired prefix for headers created.
 		std::string header_postfix;		// Can be empty, or can specify a desired postfix for header created.
+		std::string file_type;			// Default "h". Other options (hpp, hxx, class)
+		std::string header_include;		// Default "sqlite3pp_ez.h". Other options (../SQLite3pp_ez.h)
 	};
 	struct MiscOptions
 	{
@@ -358,12 +431,12 @@ namespace sqlite3pp
 			, const std::string &AndWhereClause = ""							// Used when creating multiple tables.  Can specify which tables/views to include via where clause
 			, const MiscOptions &miscoptions = MiscOpt_max						// MiscOptions is used to define miscellaneous options.  Can be set to a custom define MiscOptions, or to one of the predefined common options (MiscOpt_max, MiscOpt_min, MiscOpt_var)
 			, const HeaderOpt &headeropt = HeaderDefaultOpt						// HeaderOpt is used to define the naming convention to use when creating the header file(s).
-			, const std::string& TableOrView_name = CreateHeaderForAllTables	// If equal to "%CreateHeaderForAllTables%", a header for each table and view is created. If equal to table or view name, a single header for associated table or view is created. If empty or equal to "#NILL#", the constructor does not create any headers.
+			, const std::string& TableOrView_name = CreateHeaderForAllTables	// If equal to "%_CreateHeaderForAllTables_%", a header for each table and view is created. If equal to table or view name, a single header for associated table or view is created. If empty or equal to "#NILL#", the constructor does not create any headers.
 		) :m_db(Db_filename.c_str()), m_options( Init(stroptions, miscoptions, headeropt) ), m_options_org(m_options), m_AppendTableToHeader(false){Init(TableOrView_name, AndWhereClause);}
 
 		// This constructor is best when crating a single header or no headers at all in the contructor. (Headers can also be created by calling CreateHeader or CreateAllHeaders)
 		SQLiteClassBuilder(const std::string& Db_filename						// Only Required Field
-			, const std::string& TableOrView_name = ""							// If equal to "%CreateHeaderForAllTables%", a header for each table and view is created. If equal to table or view name, a single header for associated table or view is created. If empty or equal to "#NILL#", the constructor does not create any headers.
+			, const std::string& TableOrView_name = ""							// If equal to "%_CreateHeaderForAllTables_%", a header for each table and view is created. If equal to table or view name, a single header for associated table or view is created. If empty or equal to "#NILL#", the constructor does not create any headers.
 			, const std::string &AndWhereClause = ""							// Used when creating multiple tables.  Can specify which tables/views to include via where clause
 			, const StrOptions &stroptions = strOpt_std_string					// StrOptions is used to define the default string type.  Can be set to a custom define StrOptions, or to one of the predefined common options (strOpt_std_string, strOpt_std_wstring, strOpt_std_tstring, strOpt_sql_tstring)
 			, const MiscOptions &miscoptions = MiscOpt_max						// MiscOptions is used to define miscellaneous options.  Can be set to a custom define MiscOptions, or to one of the predefined common options (MiscOpt_max, MiscOpt_min, MiscOpt_var)
@@ -388,7 +461,7 @@ namespace sqlite3pp
 		static const HeaderOpt HeaderDefaultOpt;
 
 		static const char *Nill; // = "#NILL#"
-		static const char *CreateHeaderForAllTables; // = "%CreateHeaderForAllTables%"
+		static const char *CreateHeaderForAllTables; // = "%_CreateHeaderForAllTables_%"
 	};
 
 	using SqlBld = SQLiteClassBuilder; // Short alias
