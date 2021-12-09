@@ -1,4 +1,3 @@
-[![All Releases](https://img.shields.io/github/downloads/David-Maisonave/sqlite3pp_EZ/total.svg)](https://github.com/David-Maisonave/sqlite3pp_EZ/releases/latest)
 sqlite3pp_EZ
 =========
  * Unicode support
