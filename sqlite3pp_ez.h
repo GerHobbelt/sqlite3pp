@@ -32,6 +32,15 @@
 
 namespace sqlite3pp
 {
+	enum VerbosityLevels {
+		VerbosityLevels_NO_OUTPUT = 0
+		, VBLV_ERROR = 1	// Prints out unexpected behavior which will cause program to fail
+		, VBLV_WARN = 2		// Prints out unexpected behavior, but program can still continue.
+		, VBLV_INFO = 3		// Prints out process information
+		, VBLV_DEBUG = 4	// Prints out information mainly useful for debugging
+		, VBLV_DETAIL = 5	// Prints out expected behavior
+	};
+
 	class sql_base
 	{
 	public:
@@ -94,11 +103,14 @@ namespace sqlite3pp
 		static const char TableArg_PreExecuteArg[];
 		static const char TableArg_WhereClauseArg[];
 		static const char TableArg_DbFileNameArg[];
+		static void SetVerbosityLevel(VerbosityLevels v);
+		static VerbosityLevels GetVerbosityLevel();
 
 	protected:
 		static sqlite3pp::database global_db; // To be used as global DB
 		static bool bIsGlblDbOpen; // To be used as global DB
 		static const char TableArg_ValueArg[];
+		static VerbosityLevels m_VerbosityLevels; // Default value VBLV_ERROR
 	};
 	
 
@@ -379,11 +391,11 @@ namespace sqlite3pp
 	};
 	struct HeaderOpt
 	{
-		std::string dest_folder;		// Can be empty, but if folder is specified, it must end with "\\".  Otherwise it will be treated as part of the file name.
-		std::string header_prefix;		// Can be empty, or can specify a desired prefix for headers created.
-		std::string header_postfix;		// Can be empty, or can specify a desired postfix for header created.
-		std::string file_type;			// Default "h". Other options (hpp, hxx, class)
-		std::string header_include;		// Default "sqlite3pp_ez.h". Other options (../SQLite3pp_ez.h)
+		std::string dest_folder;		// Default: "SQL\\"				Destination folder where headers are created. If drive letter is not included in the path, folder is treated as relative path.
+		std::string header_prefix;		// Default: "sql_"				Desired prefix for headers created.
+		std::string header_postfix;		// Default: ""					Desired postfix for header created.
+		std::string file_type;			// Default: "h"					Other options (hpp, hxx, class)
+		std::string header_include;		// Default: "sqlite3pp_ez.h"	Other options (..\\SQLite3pp_ez.h)
 	};
 	struct MiscOptions
 	{
@@ -395,7 +407,7 @@ namespace sqlite3pp
 		bool exclude_comments;			// If true, excludes comments and additional spaces.
 		bool exclude_table_interface;	// If true, excludes sqlite3pp::Table interface functions ( getTableName, getColumnNames, and getStreamData), and excludes Miscellaneous function(s).
 		bool use_basic_types_only;		// If true, only int, double, std::string, and std::wstring are used
-		bool exclude_main_hdr_example;	// If true, excludes example code added to sql_All_Headers.h
+		bool exclude_main_hdr_example;	// If true, excludes example code added to sql_Master_Header.h
 		bool exclude_comment_out_exampl;// If true, does NOT comment out example code
 	}; // Create a custom defined TblClassOptions variable, or used one of the SQLiteClassBuilder predefined types, or use the default type which is automatically set by the SQLiteClassBuilder constructor
 
@@ -415,8 +427,8 @@ namespace sqlite3pp
 		bool m_AppendTableToHeader;
 		std::vector<std::string> m_HeadersCreated;
 		std::vector<std::string> m_ClassNames;
-		std::string GetType(const char* str);
-		static bool dir_exists(const std::string& foldername);
+		std::string GetType(const std::string &tblVw, const std::string &colName, const char* str);
+		std::string GetType_s(const std::string &tblVw, const std::string &colName, const char* str);
 		TblClassOptions Init(const StrOptions & stroptions, const MiscOptions & miscoptions, const HeaderOpt & headeropt);
 		void Init(
 			  const std::string& TableOrView_name
@@ -447,6 +459,12 @@ namespace sqlite3pp
 		bool CreateAllHeaders(const std::string &AndWhereClause = "");
 		bool CreateAllHeaders(const TblClassOptions &strtype, const std::string &AndWhereClause = "");
 		bool CreateHeader(const std::string& TableName, const TblClassOptions *strtype = NULL, std::string QueryStr = "");
+
+		const std::vector<std::string>& GetHeadersCreated() const { return m_HeadersCreated; }
+		const std::vector<std::string>& GetClassNames() const { return m_ClassNames; }
+		const std::string& GetDestFolder() const { return m_options.h.dest_folder; }
+
+		static bool dir_exists(const std::string& foldername);
 
 		// Predefined string options
 		static const StrOptions strOpt_std_string ;		// TEXT type defaults to std::string

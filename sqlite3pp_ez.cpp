@@ -18,6 +18,9 @@
 #include <direct.h>
 #include <cassert>
 
+
+#define V_COUT(VB, V)		{if (sqlite3pp::sql_base::GetVerbosityLevel() >= sqlite3pp::VBLV_##VB) {std::cout << __FUNCTION__ << ":" << #VB << ": " << V << std::endl;} }
+
 namespace sqlite3pp
 {
 	///////////////////////////////////////////////////////////////////////////
@@ -68,6 +71,17 @@ namespace sqlite3pp
 		return to_string(src);
 	}
 #endif // _UNICODE
+
+	VerbosityLevels sql_base::m_VerbosityLevels = VBLV_ERROR;
+	void sql_base::SetVerbosityLevel(VerbosityLevels v)
+	{
+		m_VerbosityLevels = v;
+	}
+
+	VerbosityLevels sql_base::GetVerbosityLevel()
+	{
+		return m_VerbosityLevels;
+	}
 
 	int database::connect( wchar_t const * dbname, int flags, const wchar_t * vfs )
 	{
@@ -340,11 +354,20 @@ namespace sqlite3pp
 	const char *SQLiteClassBuilder::Nill = "#NILL#";
 	const char *SQLiteClassBuilder::CreateHeaderForAllTables = "%_CreateHeaderForAllTables_%";
 
-	std::string SQLiteClassBuilder::GetType(const char* str_org)
+	std::string SQLiteClassBuilder::GetType(const std::string &tblVw, const std::string &colName, const char* str_org)
+	{
+		std::string strtype = GetType_s(tblVw, colName, str_org);
+		V_COUT(DETAIL, "Using type '" << strtype << "' for column '" << colName << "' in table/view '" << tblVw << "'.");
+		return strtype;
+	}
+
+	std::string SQLiteClassBuilder::GetType_s(const std::string &tblVw, const std::string &colName, const char* str_org)
 	{
 		const std::string DefaultType = "Text";
 		if (!str_org)
 		{
+			// Logging out as DEBUG because some views do return NULL value for the column type.
+			V_COUT(DEBUG, "Entered with DB type NULL value for column '" << colName << "' in table/view '" << tblVw << "'.\nGracefully continuing by returning default type '" << DefaultType << "'.");
 			return DefaultType;
 		}
 		char str[99] = { 0 };
@@ -364,6 +387,14 @@ namespace sqlite3pp
 		
 		if (UseBaseTypes || m_options.m.use_basic_types_only)
 		{
+			// Only output detail once
+			static bool HasLoggedDetails = false;
+			if (!HasLoggedDetails)
+			{
+				HasLoggedDetails = true;
+				V_COUT(DETAIL, "Only setting DB types to basic types due to compiler #define SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY(" << UseBaseTypes << ") or input option use_basic_types_only(" << m_options.m.use_basic_types_only << ")");
+			}
+
 			if (strcmp("INTEGER", str) == 0 || strcmp("INT", str) == 0 || strcmp("TINYINT", str) == 0 || strcmp("SMALLINT", str) == 0 || strcmp("MEDIUMINTSMALLINT", str) == 0 || strcmp("BIGINT", str) == 0 || strcmp("UNSIGNED BIG INT", str) == 0 || strcmp("INT2", str) == 0 || strcmp("INT8", str) == 0)
 				return "int";
 			if (strcmp("REAL", str) == 0 || strcmp("DOUBLE", str) == 0 || strcmp("DOUBLE PRECISION", str) == 0 || strcmp("FLOAT", str) == 0 || strncmp("DECIMAL", str, 7) == 0 || strcmp("BOOLEANL", str) == 0 || strcmp("BOOLEAN", str) == 0 || strcmp("DATE", str) == 0 || strcmp("DATETIME", str) == 0 || strcmp("NUMERIC", str) == 0)
@@ -432,7 +463,9 @@ namespace sqlite3pp
 				return "Nvarchar";
 		}
 
+		V_COUT(WARN, "Received unknown type ('" << str_org << "') from DB  for column '" << colName << "' in table/view '" << tblVw << "'.");
 		assert(0); // Always assert, because the code should not reach this point.
+		V_COUT(WARN, "Gracefully continuing by returning default type '" << DefaultType << "'.");
 		return DefaultType; // Handle it gracefully for release mode.
 	}
 	
@@ -451,19 +484,36 @@ namespace sqlite3pp
 
 	void SQLiteClassBuilder::Init(const std::string & TableOrView_name, const std::string & AndWhereClause)
 	{
+		if (m_options.h.dest_folder.size())
+		{
+			if (m_options.h.dest_folder[m_options.h.dest_folder.size() - 1] == '/')
+				m_options.h.dest_folder[m_options.h.dest_folder.size() - 1] = '\\';
+			else if (m_options.h.dest_folder[m_options.h.dest_folder.size() - 1] != '\\')
+				m_options.h.dest_folder = +"\\";
+			V_COUT(DEBUG, "Using destination path '" << m_options.h.dest_folder << "'.");
+		}
+
 		if (TableOrView_name == CreateHeaderForAllTables)
+		{
+			V_COUT(DEBUG, "Calling CreateAllHeaders with Where Clause '" << AndWhereClause << "'.");
 			CreateAllHeaders(m_options, AndWhereClause);
+		}
 		else if (!TableOrView_name.empty() && TableOrView_name != Nill)
+		{
+			V_COUT(DEBUG, "Calling CreateHeader with name '" << TableOrView_name << "'.");
 			CreateHeader(TableOrView_name);
+		}
 	}
 		
 	SQLiteClassBuilder::~SQLiteClassBuilder()
 	{
+		V_COUT(DEBUG, "Disconnecting database.");
 		m_db.disconnect();
 	}
 
 	bool SQLiteClassBuilder::CreateAllHeaders(const std::string &AndWhereClause)
 	{
+		V_COUT(DEBUG, "Calling CreateAllHeaders with Where Clause '" << AndWhereClause << "'.");
 		return CreateAllHeaders(m_options, AndWhereClause);
 	}
 	static const char TopHeaderCommnetsPrt1[] = "/* This file was automatically generated using [Sqlite3pp_EZ].\nSqlite3pp_EZ Copyright (C) 2021 David Maisonave (http::\\www.axter.com)";
@@ -471,12 +521,16 @@ namespace sqlite3pp
 
 	bool SQLiteClassBuilder::CreateHeaderPrefix(const std::string& TableName, std::ofstream &myfile, std::string& ClassName, std::string& HeaderUpper, std::string FirstColumnName, std::string LastColumnName, bool AppendToVect)
 	{
+		V_COUT(DEBUG, "Entering with arguments: '" << TableName << "', ofstream, '" << ClassName << "', '" << HeaderUpper << "', '" << FirstColumnName << "', '" << LastColumnName << "', " << AppendToVect);
 		std::ios_base::openmode openMode = m_AppendTableToHeader ? std::ios_base::out | std::ios_base::app : std::ios_base::out;
 		ClassName = m_options.h.header_prefix + TableName + m_options.h.header_postfix;
 		const std::string HeaderFileName = m_options.h.dest_folder + ClassName + "." + m_options.h.file_type;
 		myfile.open(HeaderFileName.c_str(), openMode);
 		if (!myfile.is_open())
+		{
+			V_COUT(WARN, "Failed to open file '" << HeaderFileName << "'");
 			return false;
+		}
 		if (AppendToVect)
 			m_HeadersCreated.push_back(HeaderFileName);
 		char headerupper[256] = { 0 };
@@ -504,8 +558,14 @@ namespace sqlite3pp
 		myfile << "#define " << HeaderUpper << std::endl;
 		myfile << m_options.s.str_include << std::endl;
 		if (m_options.h.header_include.size())
-			myfile << "#include \"" << m_options.h.header_include << "\"" << std::endl;
+		{
+			std::string AdditionalInclude = "#include \"" + m_options.h.header_include + "\"";
+			// Make sure is not already included.
+			if (AdditionalInclude != m_options.s.str_include)
+				myfile << AdditionalInclude << std::endl;
+		}
 
+		V_COUT(DETAIL, "Created prefix data for class '" << ClassName << "' in file '" << HeaderFileName << "' for table '" << TableName << "'");
 		return true;
 	}
 
@@ -531,7 +591,7 @@ namespace sqlite3pp
 		m_options.h.header_prefix = OrgPrefix;
 		std::ofstream myfile;
 		std::string ClassName, HeaderUpper;
-		if (CreateHeaderPrefix("All_Headers", myfile, ClassName, HeaderUpper, "", "", false))
+		if (CreateHeaderPrefix("Master_Header", myfile, ClassName, HeaderUpper, "", "", false))
 		{
 			for (auto s : m_HeadersCreated)
 				myfile << "#include \"" << s << "\"" << std::endl;
@@ -575,6 +635,7 @@ namespace sqlite3pp
 			}
 			myfile << "\n#endif // !" << HeaderUpper << std::endl;
 			myfile.close();
+			V_COUT(DETAIL, "Finish creating Master_Header file.");
 		}
 
 		return true;
@@ -630,7 +691,7 @@ namespace sqlite3pp
 		{
 			if (strstr(qry->column_name(i), ":") != NULL) continue;
 
-			columns.push_back(std::pair<std::string, std::string>(qry->column_name(i), GetType(qry->column_decltype(i))));
+			columns.push_back(std::pair<std::string, std::string>(qry->column_name(i), GetType(TableName, qry->column_name(i), qry->column_decltype(i))));
 			columns_with_comma.push_back(std::pair<std::string, std::string>(qry->column_name(i), i ? ", " : ""));
 			if (FirstColumnName.empty())
 				FirstColumnName = qry->column_name(i);
@@ -775,6 +836,7 @@ namespace sqlite3pp
 
 		//Done
 		myfile.close();
+		V_COUT(DETAIL, "Finish creating class '" << ClassName << "' for table '" << TableName << "'");
 		return true;
 	}
 
@@ -796,6 +858,11 @@ namespace sqlite3pp
 #endif  // !SQLITE3PP_ALLOW_NULL_STRING_RETURN
 		std::wstring value;
 		const char * strtype = sqlite3_column_decltype(stmt_, idx);
+		if (!strtype)
+		{
+			V_COUT(WARN, "Received NULL value when getting column type for idx " << idx << ". Treating type as ASCII or UTF8.");
+		}
+
 		bool GetUnicodeString = false;
 		if (!strtype || strcmp(strtype, "TEXT") == 0 || strncmp("CHARACTER", strtype, 9) == 0 || strncmp("VARYING CHARACTER", strtype, 17) == 0 || strncmp("VARCHAR", strtype, 7) == 0)
 			GetUnicodeString = false;
@@ -803,6 +870,7 @@ namespace sqlite3pp
 			GetUnicodeString = true;
 		else
 		{
+			V_COUT(WARN, "Could not find a string type to process. Treating type as ASCII or UTF8.");
 			assert(0);// Code should NOT get here.  If it does something went wrong.
 			GetUnicodeString = false;
 		}
@@ -813,6 +881,7 @@ namespace sqlite3pp
 			char const* Val_a;
 			const void* Val;
 		};
+
 		if (GetUnicodeString)
 		{
 			Val_w = get(idx, (wchar_t const*)0);
@@ -878,7 +947,12 @@ namespace sqlite3pp
 		Date data = { 0 };
 		int rc = sscanf_s(s, "%d-%d-%d", &d.tm_year, &d.tm_mon, &d.tm_mday);
 		if (rc < 1 || !d.tm_mday)
+		{
+			if (s) V_COUT(WARN, "Could not parse value '" << s << "' into a date.");
+			if (rc < 1) V_COUT(WARN, "sscanf_s returned value less than 1 indicating invalid data.");
+			if (!d.tm_mday) V_COUT(WARN, "tm_mday == 0. Invalid value.");
 			return data;
+		}
 		if (d.tm_year > 1900)
 		{
 			d.tm_year -= 1900;
@@ -886,7 +960,10 @@ namespace sqlite3pp
 		}
 		data.t = mktime(&d);
 		if (data.t == -1)
+		{
+			V_COUT(WARN, "Received -1 from mktime.");
 			return Date();
+		}
 		return data;
 	}
 
@@ -897,6 +974,9 @@ namespace sqlite3pp
 		int rc = sscanf_s(s, "%d-%d-%d %d:%d:%d", &data.tm_struct.tm_year, &data.tm_struct.tm_mon, &data.tm_struct.tm_mday, &data.tm_struct.tm_hour, &data.tm_struct.tm_min, &data.tm_struct.tm_sec);
 		if (rc < 1 || !data.tm_struct.tm_mday)
 		{
+			if (s) V_COUT(WARN, "Could not parse value '" << s << "' into a date.");
+			if (rc < 1) V_COUT(WARN, "sscanf_s returned value less than 1 indicating invalid data.");
+			if (!data.tm_struct.tm_mday) V_COUT(WARN, "tm_mday == 0. Invalid value.");
 			return Datetime();
 		}
 
@@ -959,7 +1039,10 @@ namespace sqlite3pp
 			os << buf;
 		}
 		else
+		{
+			V_COUT(WARN, "tm_mday == 0. Invalid value.");
 			os << L"0000-00-00 00:00:00";
+		}
 		return os;
 	}
 
@@ -972,7 +1055,10 @@ namespace sqlite3pp
 			os << buf;
 		}
 		else
+		{
+			V_COUT(WARN, "tm_mday == 0. Invalid value.");
 			os << "0000-00-00 00:00:00";
+		}
 		return os;
 	}
 
@@ -987,7 +1073,10 @@ namespace sqlite3pp
 			os << buf;
 		}
 		else
+		{
+			V_COUT(WARN, "t.t = Invalid Falue.");
 			os << L"0000-00-00";
+		}
 		return os;
 	}
 
@@ -1002,7 +1091,10 @@ namespace sqlite3pp
 			os << buf;
 		}
 		else
+		{
+			V_COUT(WARN, "t.t = Invalid Falue.");
 			os << "0000-00-00";
+		}
 		return os;
 	}
 #endif	// !SQLITE3PP_CONVERT_TO_RESULTING_AFFINITY
