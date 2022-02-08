@@ -1,6 +1,6 @@
 Summary:	sqlite3 C++ wrapper
 Name:		sqlite3pp
-Version:	22.2.8
+Version:	1.0.9
 Release:	1%{?dist}
 BuildArch:	noarch
 Group:		Development/Tools
@@ -36,6 +36,6 @@ sqlite3 C++ wrapper
 %{_includedir}/sqlite3pp/*
 
 %changelog
-* Tue Feb  8 2022 Mika Heiskanen <mika.heiskanen@fmi.fi> - 22.2.8-1
+* Tue Feb  8 2022 Mika Heiskanen <mika.heiskanen@fmi.fi> - 1.0.9-1
 - First packaged version
 
