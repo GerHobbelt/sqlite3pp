@@ -25,10 +25,10 @@
 #ifndef SQLITE3PP_H
 #define SQLITE3PP_H
 
-#define SQLITE3PP_VERSION "1.0.8"
+#define SQLITE3PP_VERSION "1.0.9"
 #define SQLITE3PP_VERSION_MAJOR 1
 #define SQLITE3PP_VERSION_MINOR 0
-#define SQLITE3PP_VERSION_PATCH 8
+#define SQLITE3PP_VERSION_PATCH 9
 
 #include <functional>
 #include <iterator>
@@ -130,6 +130,8 @@ namespace sqlite3pp
     void set_update_handler(update_handler h);
     void set_authorize_handler(authorize_handler h);
 
+    sqlite3* sqlite3_handle();
+    
    private:
     database(sqlite3* pdb);
 

@@ -255,6 +255,10 @@ namespace sqlite3pp
     return sqlite3_busy_timeout(db_, ms);
   }
 
+  sqlite3* database::sqlite3_handle()
+  {
+    return db_;
+  }
 
   statement::statement(database& db, char const* stmt) : db_(db), stmt_(0), tail_(0)
   {
