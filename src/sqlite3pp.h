@@ -180,6 +180,8 @@ namespace sqlite3pp
     int bind(char const* name, null_type);
 
     int step();
+
+    /// reset a prepared statement ready to be re-executed, doesn't reset bindings
     int reset();
 
    protected:
