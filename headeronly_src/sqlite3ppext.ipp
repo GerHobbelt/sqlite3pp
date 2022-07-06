@@ -157,7 +157,7 @@ namespace sqlite3pp
 
     inline void context::result_error(char const* msg)
     {
-      sqlite3_result_error(ctx_, msg, std::strlen(msg));
+      sqlite3_result_error(ctx_, msg, int(std::strlen(msg)));
     }
 
     inline void* context::aggregate_data(int size)
@@ -165,10 +165,13 @@ namespace sqlite3pp
       return sqlite3_aggregate_context(ctx_, size);
     }
 
-    inline int context::aggregate_count()
+#if 0 // Disabled due to deprecation in SQLite --snej
+    int context::aggregate_count()
     {
+      // FIXME: sqlite3_aggregate_count is deprecated
       return sqlite3_aggregate_count(ctx_);
     }
+#endif
 
     inline function::function(database& db) : db_(db.db_)
     {

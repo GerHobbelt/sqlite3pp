@@ -24,6 +24,7 @@
 
 #include <cstring>
 #include <memory>
+#include <assert.h>
 
 namespace sqlite3pp
 {
@@ -64,16 +65,24 @@ namespace sqlite3pp
 
   } // namespace
 
-  inline database::database(char const* dbname, int flags, char const* vfs) : db_(nullptr), borrowing_(false)
+  void checking::throw_(int rc) const {
+    throw database_error(db_, rc);
+  }
+
+  database::database(char const* dbname, int flags, char const* vfs) : checking(*this), db_(nullptr), borrowing_(false)
   {
     if (dbname) {
       auto rc = connect(dbname, flags, vfs);
       if (rc != SQLITE_OK)
-        throw database_error("can't connect database");
+        throw database_error("can't connect database", rc);
     }
   }
 
-  inline database::database(database&& db) : db_(std::move(db.db_)),
+  database::database(sqlite3* pdb) : checking(*this), db_(pdb), borrowing_(true)
+  {
+  }
+
+  database::database(database&& db) : checking(*this), db_(std::move(db.db_)),
     borrowing_(std::move(db.borrowing_)),
     bh_(std::move(db.bh_)),
     ch_(std::move(db.ch_)),
@@ -112,7 +121,7 @@ namespace sqlite3pp
       disconnect();
     }
 
-    return sqlite3_open_v2(dbname, &db_, flags, vfs);
+    return check(sqlite3_open_v2(dbname, &db_, flags, vfs));
   }
 
   inline int database::disconnect()
@@ -125,7 +134,7 @@ namespace sqlite3pp
       }
     }
 
-    return rc;
+    return check(rc);
   }
 
   inline int database::attach(char const* dbname, char const* name)
@@ -157,7 +166,7 @@ namespace sqlite3pp
       }
     } while (rc == SQLITE_OK || rc == SQLITE_BUSY || rc == SQLITE_LOCKED);
     sqlite3_backup_finish(bkup);
-    return rc;
+    return check(rc);
   }
 
   inline void database::set_busy_handler(busy_handler h)
@@ -197,12 +206,12 @@ namespace sqlite3pp
 
   inline int database::enable_foreign_keys(bool enable)
   {
-    return sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_FKEY, enable ? 1 : 0, nullptr);
+    return check(sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_FKEY, enable ? 1 : 0, nullptr));
   }
 
   inline int database::enable_triggers(bool enable)
   {
-    return sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_TRIGGER, enable ? 1 : 0, nullptr);
+    return check(sqlite3_db_config(db_, SQLITE_DBCONFIG_ENABLE_TRIGGER, enable ? 1 : 0, nullptr));
   }
 
   inline int database::enable_extended_result_codes(bool enable)
@@ -215,7 +224,11 @@ namespace sqlite3pp
     return sqlite3_changes(db_);
   }
 
-  inline int database::error_code() const
+  int64_t database::total_changes() const {
+    return sqlite3_total_changes(db_);
+  }
+
+  int database::error_code() const
   {
     return sqlite3_errcode(db_);
   }
@@ -232,7 +245,7 @@ namespace sqlite3pp
 
   inline int database::execute(char const* sql)
   {
-    return sqlite3_exec(db_, sql, 0, 0, 0);
+    return check(sqlite3_exec(db_, sql, 0, 0, 0));
   }
 
   inline int database::executef(char const* sql, ...)
@@ -247,7 +260,7 @@ namespace sqlite3pp
 
   inline int database::set_busy_timeout(int ms)
   {
-    return sqlite3_busy_timeout(db_, ms);
+    return check(sqlite3_busy_timeout(db_, ms));
   }
 
   inline sqlite3* database::sqlite3_handle()
@@ -255,12 +268,13 @@ namespace sqlite3pp
     return db_;
   }
 
-  inline statement::statement(database& db, char const* stmt) : db_(db), stmt_(0), tail_(0)
+  statement::statement(database& db, char const* stmt) : checking(db), stmt_(0), tail_(0)
   {
+    exceptions(db.exceptions());
     if (stmt) {
       auto rc = prepare(stmt);
       if (rc != SQLITE_OK)
-        throw database_error(db_);
+        throw_(rc);
     }
   }
 
@@ -275,26 +289,38 @@ namespace sqlite3pp
   {
     auto rc = finish();
     if (rc != SQLITE_OK)
-      return rc;
+      return check(rc);
 
-    return prepare_impl(stmt);
+    return check(prepare_impl(stmt));
   }
 
   inline int statement::prepare_impl(char const* stmt)
   {
-    return sqlite3_prepare_v2(db_.db_, stmt, std::strlen(stmt), &stmt_, &tail_);
+    shared_ = false;
+    return sqlite3_prepare_v2(db_.db_, stmt, int(std::strlen(stmt)), &stmt_, &tail_);
   }
 
-  inline int statement::finish()
+  void statement::share(const statement& other) {
+    finish();
+    stmt_ = other.stmt_;
+    shared_ = true;
+    unbind();
+  }
+
+  int statement::finish()
   {
     auto rc = SQLITE_OK;
     if (stmt_) {
-      rc = finish_impl(stmt_);
+      if (shared_) {
+        reset();
+      } else {
+        rc = finish_impl(stmt_);
+      }
       stmt_ = nullptr;
     }
     tail_ = nullptr;
 
-    return rc;
+    return check(rc);
   }
 
   inline int statement::finish_impl(sqlite3_stmt* stmt)
@@ -302,49 +328,81 @@ namespace sqlite3pp
     return sqlite3_finalize(stmt);
   }
 
-  inline int statement::step()
+  bool statement::prepared() const
   {
-    return sqlite3_step(stmt_);
+    return stmt_ != nullptr;
+  }
+
+  statement::operator bool() const {
+    return prepared();
+  }
+
+
+  int statement::step()
+  {
+    auto rc = sqlite3_step(stmt_);
+    if (rc != SQLITE_DONE && rc != SQLITE_ROW)
+      check(rc);
+    return rc;
   }
 
   inline int statement::reset()
   {
+    // "If the most recent call to sqlite3_step ... indicated an error, then sqlite3_reset
+    // returns an appropriate error code." Since this is not a new error, don't call check().
     return sqlite3_reset(stmt_);
   }
 
-  inline int statement::bind(int idx, int value)
+  int statement::unbind()
   {
-    return sqlite3_bind_int(stmt_, idx, value);
+    return check(sqlite3_clear_bindings(stmt_));
+  }
+
+  int statement::bind(int idx, int value)
+  {
+    return check(sqlite3_bind_int(stmt_, idx, value));
   }
 
   inline int statement::bind(int idx, double value)
   {
-    return sqlite3_bind_double(stmt_, idx, value);
+    return check(sqlite3_bind_double(stmt_, idx, value));
   }
 
-  inline int statement::bind(int idx, long long int value)
+  int statement::bind(int idx, long int value)
   {
-    return sqlite3_bind_int64(stmt_, idx, value);
+    return check(sqlite3_bind_int64(stmt_, idx, value));
+  }
+
+  int statement::bind(int idx, long long int value)
+  {
+    return check(sqlite3_bind_int64(stmt_, idx, value));
   }
 
   inline int statement::bind(int idx, char const* value, copy_semantic fcopy)
   {
-    return sqlite3_bind_text(stmt_, idx, value, std::strlen(value), fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC );
+    return check(sqlite3_bind_text(stmt_, idx, value, int(std::strlen(value)), fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC ));
   }
 
-  inline int statement::bind(int idx, void const* value, int n, copy_semantic fcopy)
+  int statement::bind(int idx, blob value)
   {
-    return sqlite3_bind_blob(stmt_, idx, value, n, fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC );
+    return check(sqlite3_bind_blob(stmt_, idx, value.data, int(value.size), value.fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC ));
   }
 
-  inline int statement::bind(int idx, std::string const& value, copy_semantic fcopy)
+  int statement::bind(int idx, void const* value, int n, copy_semantic fcopy)
   {
-    return sqlite3_bind_text(stmt_, idx, value.c_str(), value.size(), fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC );
+    assert(n >= 0);
+    return check(bind(idx, blob{value, size_t(n), fcopy}));
   }
 
-  inline int statement::bind(int idx)
+  int statement::bind(int idx, std::string_view value, copy_semantic fcopy)
   {
-    return sqlite3_bind_null(stmt_, idx);
+    return check(sqlite3_bind_text(stmt_, idx, value.data(), int(value.size()),
+                                   fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC ));
+  }
+
+  int statement::bind(int idx)
+  {
+    return check(sqlite3_bind_null(stmt_, idx));
   }
 
   inline int statement::bind(int idx, null_type)
@@ -364,7 +422,13 @@ namespace sqlite3pp
     return bind(idx, value);
   }
 
-  inline int statement::bind(char const* name, long long int value)
+  int statement::bind(char const* name, long int value)
+  {
+    auto idx = sqlite3_bind_parameter_index(stmt_, name);
+    return bind(idx, value);
+  }
+
+  int statement::bind(char const* name, long long int value)
   {
     auto idx = sqlite3_bind_parameter_index(stmt_, name);
     return bind(idx, value);
@@ -382,7 +446,7 @@ namespace sqlite3pp
     return bind(idx, value, n, fcopy);
   }
 
-  inline int statement::bind(char const* name, std::string const& value, copy_semantic fcopy)
+  int statement::bind(char const* name, std::string_view value, copy_semantic fcopy)
   {
     auto idx = sqlite3_bind_parameter_index(stmt_, name);
     return bind(idx, value, fcopy);
@@ -399,6 +463,11 @@ namespace sqlite3pp
     return bind(name);
   }
 
+  statement::bindref statement::operator[] (char const *name)
+  {
+    auto idx = sqlite3_bind_parameter_index(stmt_, name);
+    return bindref(*this, idx);
+  }
 
   inline command::bindstream::bindstream(command& cmd, int idx) : cmd_(cmd), idx_(idx)
   {
@@ -406,6 +475,7 @@ namespace sqlite3pp
 
   inline command::command(database& db, char const* stmt) : statement(db, stmt)
   {
+    exceptions(db.exceptions());
   }
 
   inline command::bindstream command::binder(int idx)
@@ -418,9 +488,10 @@ namespace sqlite3pp
     auto rc = step();
     if (rc == SQLITE_DONE) rc = SQLITE_OK;
 
-    return rc;
+    return check(rc);
   }
 
+#if 0 // Disabled due to deprecation in SQLite --snej
   inline int command::execute_all()
   {
     auto rc = execute();
@@ -431,19 +502,21 @@ namespace sqlite3pp
     while (std::strlen(sql) > 0) { // sqlite3_complete() is broken.
       sqlite3_stmt* old_stmt = stmt_;
 
-      if ((rc = prepare_impl(sql)) != SQLITE_OK) return rc;
+      if ((rc = prepare_impl(sql)) != SQLITE_OK) break;
 
-      if ((rc = sqlite3_transfer_bindings(old_stmt, stmt_)) != SQLITE_OK) return rc;
+      //FIXME: sqlite3_transfer_bindings is deprecated; replace with something else
+      if ((rc = sqlite3_transfer_bindings(old_stmt, stmt_)) != SQLITE_OK) break;
 
-      finish_impl(old_stmt);
+      if ((rc = finish_impl(old_stmt))) break;
 
-      if ((rc = execute()) != SQLITE_OK) return rc;
+      if ((rc = execute()) != SQLITE_OK) break;
 
       sql = tail_;
     }
 
-    return rc;
+    return check(rc);
   }
+#endif
 
 
   inline query::rows::getstream::getstream(rows* rws, int idx) : rws_(rws), idx_(idx)
@@ -479,7 +552,12 @@ namespace sqlite3pp
     return sqlite3_column_double(stmt_, idx);
   }
 
-  inline long long int query::rows::get(int idx, long long int) const
+  long long int query::rows::get(int idx, long int) const
+  {
+    return sqlite3_column_int64(stmt_, idx);
+  }
+
+  long long int query::rows::get(int idx, long long int) const
   {
     return sqlite3_column_int64(stmt_, idx);
   }
@@ -491,8 +569,18 @@ namespace sqlite3pp
 
   inline std::string query::rows::get(int idx, std::string) const
   {
-    char const* t = get(idx, (char const*)0);
-    return (t) ? t : std::string();
+    char const* cstr = get(idx, (char const*)0);
+    if (!cstr)
+      return {};
+    return {cstr, size_t(column_bytes(idx))};
+  }
+
+  std::string_view query::rows::get(int idx, std::string_view) const
+  {
+    char const* cstr = get(idx, (char const*)0);
+    if (!cstr)
+      return {};
+    return {cstr, size_t(column_bytes(idx))};
   }
 
   inline void const* query::rows::get(int idx, void const*) const
@@ -500,26 +588,34 @@ namespace sqlite3pp
     return sqlite3_column_blob(stmt_, idx);
   }
 
-  inline null_type query::rows::get(int /*idx*/, null_type) const
+  blob query::rows::get(int idx, blob) const
+  {
+    // It's important to make the calls in this order, so we get the size of the blob value, not the string value.
+    auto data = sqlite3_column_blob(stmt_, idx);
+    auto size = sqlite3_column_bytes(stmt_, idx);
+    return {data, size_t(size), copy};
+  }
+
+  null_type query::rows::get(int /*idx*/, null_type) const
   {
     return ignore;
   }
-  
-  inline query::rows::getstream query::rows::getter(int idx)
+
+  query::rows::getstream query::rows::getter(int idx)
   {
     return getstream(this, idx);
   }
 
-  inline query::query_iterator::query_iterator() : cmd_(0)
+  query::query_iterator::query_iterator() : cmd_(0), rows_(nullptr)
   {
     rc_ = SQLITE_DONE;
   }
 
-  inline query::query_iterator::query_iterator(query* cmd) : cmd_(cmd)
+  query::query_iterator::query_iterator(query* cmd) : cmd_(cmd), rows_(cmd_->stmt_)
   {
     rc_ = cmd_->step();
     if (rc_ != SQLITE_ROW && rc_ != SQLITE_DONE)
-      throw database_error(cmd_->db_);
+      cmd_->throw_(rc_);
   }
 
   inline bool query::query_iterator::operator==(query::query_iterator const& other) const
@@ -536,16 +632,21 @@ namespace sqlite3pp
   {
     rc_ = cmd_->step();
     if (rc_ != SQLITE_ROW && rc_ != SQLITE_DONE)
-      throw database_error(cmd_->db_);
+      cmd_->throw_(rc_);
     return *this;
   }
 
-  inline query::query_iterator::value_type query::query_iterator::operator*() const
+  const query::query_iterator::value_type& query::query_iterator::operator*() const
   {
-    return rows(cmd_->stmt_);
+    return rows_;
   }
 
-  inline query::query(database& db, char const* stmt) : statement(db, stmt)
+  const query::query_iterator::value_type* query::query_iterator::operator->() const
+  {
+    return &rows_;
+  }
+
+  query::query(database& db, char const* stmt) : statement(db, stmt)
   {
   }
 
@@ -576,46 +677,124 @@ namespace sqlite3pp
   }
 
 
-  inline transaction::transaction(database& db, bool fcommit, bool freserve) : db_(&db), fcommit_(fcommit)
+  transaction::transaction(database& db, bool fcommit, bool freserve)
+  : checking(db), active_(true), fcommit_(fcommit)
   {
-    int rc = db_->execute(freserve ? "BEGIN IMMEDIATE" : "BEGIN");
+    exceptions(db.exceptions());
+    int rc = db_.execute(freserve ? "BEGIN IMMEDIATE" : "BEGIN");
     if (rc != SQLITE_OK)
-      throw database_error(*db_);
+      throw_(rc);
   }
 
-  inline transaction::~transaction()
+  transaction::transaction(transaction &&t)
+  : checking(std::move(t)), active_(t.active_), fcommit_(t.fcommit_)
   {
-    if (db_) {
+    t.active_ = false;
+  }
+
+
+  transaction::~transaction()
+  {
+    if (active_) {
       // execute() can return error. If you want to check the error,
       // call commit() or rollback() explicitly before this object is
       // destructed.
-      db_->execute(fcommit_ ? "COMMIT" : "ROLLBACK");
+      exceptions(false);
+      db_.execute(fcommit_ ? "COMMIT" : "ROLLBACK");
     }
   }
 
-  inline int transaction::commit()
+  int transaction::commit()
   {
-    auto db = db_;
-    db_ = nullptr;
-    int rc = db->execute("COMMIT");
-    return rc;
+    active_ = false;
+    return check(db_.execute("COMMIT"));
   }
 
-  inline int transaction::rollback()
+  int transaction::rollback()
   {
-    auto db = db_;
-    db_ = nullptr;
-    int rc = db->execute("ROLLBACK");
-    return rc;
+    active_ = false;
+    return check(db_.execute("ROLLBACK"));
   }
 
 
-  inline database_error::database_error(char const* msg) : std::runtime_error(msg)
+  savepoint::savepoint(database& db, bool fcommit)
+  : checking(db), active_(true), fcommit_(fcommit)
+  {
+    exceptions(db.exceptions());
+    int rc = execute("SAVEPOINT x");
+    if (rc != SQLITE_OK)
+      throw_(rc);
+  }
+
+  savepoint::savepoint(savepoint &&s)
+  : checking(std::move(s)), active_(s.active_), fcommit_(s.fcommit_)
+  {
+    s.active_ = false;
+  }
+
+  savepoint::~savepoint()
+  {
+    if (active_) {
+      // execute() can return error. If you want to check the error,
+      // call commit() or rollback() explicitly before this object is
+      // destructed.
+      exceptions(false);
+      execute(fcommit_ ? "RELEASE" : "ROLLBACK TO");
+    }
+  }
+
+  int savepoint::commit()
+  {
+    active_ = false;
+    return execute("RELEASE");
+  }
+
+  int savepoint::rollback()
+  {
+    active_ = false;
+    return execute("ROLLBACK TO");
+  }
+
+  int savepoint::execute(char const *cmd)
+  {
+    // Each nested savepoint should have a distinct identifier.
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%s sp_%p", cmd, (void*)this);
+    return check(db_.execute(buf));
+  }
+
+
+  database_error::database_error(char const* msg, int rc) : std::runtime_error(msg), error_code(rc)
   {
   }
 
-  inline database_error::database_error(database& db) : std::runtime_error(sqlite3_errmsg(db.db_))
+  database_error::database_error(database& db, int rc) : database_error(sqlite3_errmsg(db.db_), rc)
   {
   }
+
+
+  blob_handle::blob_handle(database& db,
+                           const char *database,
+                           const char* table, const char *column, int64_t rowid,
+                           bool writeable)
+  {
+    int rc = sqlite3_blob_open(db.db_, database, table, column, rowid, writeable, &blob_);
+    if (rc != SQLITE_OK)
+      throw database_error(db, rc);
+    size_ = sqlite3_blob_bytes(blob_);
+  }
+
+  ssize_t blob_handle::read(void *dst, size_t len, uint64_t offset) {
+    if (offset + len > size_) {
+      if (offset >= size_)
+        return -1;
+      len = size_ - offset;
+    }
+    if (sqlite3_blob_read(blob_, dst, int(len), int(offset)) != SQLITE_OK) {
+      return -1;
+    }
+    return len;
+  }
+
 
 } // namespace sqlite3pp
