@@ -137,7 +137,7 @@ namespace sqlite3pp
 
     void context::result(char const* value, bool fcopy)
     {
-      sqlite3_result_text(ctx_, value, std::strlen(value), fcopy ? SQLITE_TRANSIENT : SQLITE_STATIC);
+      sqlite3_result_text(ctx_, value, int(std::strlen(value)), fcopy ? SQLITE_TRANSIENT : SQLITE_STATIC);
     }
 
     void context::result(void const* value, int n, bool fcopy)
@@ -162,7 +162,7 @@ namespace sqlite3pp
 
     void context::result_error(char const* msg)
     {
-      sqlite3_result_error(ctx_, msg, std::strlen(msg));
+      sqlite3_result_error(ctx_, msg, int(std::strlen(msg)));
     }
 
     void* context::aggregate_data(int size)
@@ -170,10 +170,13 @@ namespace sqlite3pp
       return sqlite3_aggregate_context(ctx_, size);
     }
 
+#if 0 // Disabled due to deprecation in SQLite --snej
     int context::aggregate_count()
     {
+      // FIXME: sqlite3_aggregate_count is deprecated
       return sqlite3_aggregate_count(ctx_);
     }
+#endif
 
     function::function(database& db) : db_(db.db_)
     {
