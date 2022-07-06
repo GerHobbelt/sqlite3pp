@@ -198,6 +198,7 @@ namespace sqlite3pp
     int bind(int idx, blob value);
     int bind(int idx, void const* value, int n, copy_semantic fcopy = copy);
     int bind(int idx, std::string_view value, copy_semantic fcopy = copy);
+    int bind_blob(int idx, std::string const& value, copy_semantic fcopy);
     int bind(int idx);
     int bind(int idx, null_type);
 
