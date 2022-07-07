@@ -6,6 +6,8 @@ sqlite3pp_EZ
  * Template Table class
  * SQL Class Builder
 
+This library makes SQLite3 API more friendly to C++ users. It supports almost all of SQLite3 features using C++ classes such as database, command, query, and transaction.
+
 This repository is a fork of sqlite3pp, and it includes additional code to add UNICODE support, a template Table class and a SQLite class builder.
 The sqlite3pp::Table class along with the sqlite3pp::SQLiteClassBuilder class allows C++ developers to use type safe variables assocaited with the table column types.
 
@@ -73,7 +75,10 @@ for (int row = 0; row < tbl.size(); ++row)								// C style iteration
 ## SQLiteClassBuilder
  * The SQLiteClassBuilder class can be used to create a class for each table or view in a SQLite database.
  * The class created by SQLiteClassBuilder is type safe IAW the column defined type.
- * The created class can be used with the template Table class. Example:  sqlite3pp::Table<MyBuilderCreatedClass> tbl;
+ * The created class can be used with the template Table class. Example:  
+   ```cpp
+sqlite3pp::Table<MyBuilderCreatedClass> tbl;
+   ```
 ## Common Usage
  * For most common requirements the default settings can be used. 
  * Unless otherwise specified, SQLiteClassBuilder uses predefined setting (std_string_protected_members) as the default settings.
