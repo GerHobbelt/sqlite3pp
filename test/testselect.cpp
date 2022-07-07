@@ -2,9 +2,16 @@
 #include <iostream>
 #include "sqlite3pp.h"
 
+#include "monolithic_examples.h"
+
 using namespace std;
 
-int main()
+
+#if defined(BUILD_MONOLITHIC)
+#define main	sqlite3pp_select_test_main
+#endif
+
+int main(void)
 {
   try {
     sqlite3pp::database db("test.db");
@@ -42,7 +49,8 @@ int main()
       for (sqlite3pp::query::iterator i = qry.begin(); i != qry.end(); ++i) {
 	int id = 0;
 	std::string name, phone;
-	(*i).getter() >> sqlite3pp::ignore >> name >> phone;
+	sqlite3pp::query::query_iterator::value_type r = (*i);
+	r.getter() >> sqlite3pp::ignore >> name >> phone;
 	cout << id << "\t" << name << "\t" << phone << endl;
       }
     }
@@ -50,4 +58,5 @@ int main()
   catch (exception& ex) {
     cout << ex.what() << endl;
   }
+  return 0;
 }

@@ -3,6 +3,8 @@
 #include <iostream>
 #include "sqlite3pp.h"
 
+#include "monolithic_examples.h"
+
 using namespace std;
 using namespace std::placeholders;
 
@@ -16,7 +18,7 @@ struct handler
   int cnt_;
 };
 
-int handle_authorize(int evcode, char const* /*p1*/, char const* /*p2*/, char const* /*dbname*/, char const* /*tvname*/) {
+static int handle_authorize(int evcode, char const* /*p1*/, char const* /*p2*/, char const* /*dbname*/, char const* /*tvname*/) {
   cout << "handle_authorize(" << evcode << ")" << endl;
   return 0;
 }
@@ -28,7 +30,12 @@ struct rollback_handler
   }
 };
 
-int main()
+
+#if defined(BUILD_MONOLITHIC)
+#define main	sqlite3pp_callback_test_main
+#endif
+
+int main(void)
 {
   try {
     sqlite3pp::database db("test.db");
@@ -77,5 +84,5 @@ int main()
   catch (std::exception& ex) {
     cout << ex.what() << endl;
   }
-
+  return 0;
 }

@@ -3,40 +3,47 @@
 #include "sqlite3pp.h"
 #include "sqlite3ppext.h"
 
+#include "monolithic_examples.h"
+
 using namespace std;
 
-int test0()
+static int test0()
 {
   return 100;
 }
 
-void test1(sqlite3pp::ext::context& ctx)
+static void test1(sqlite3pp::ext::context& ctx)
 {
   ctx.result(200);
 }
 
-void test2(sqlite3pp::ext::context& ctx)
+static void test2(sqlite3pp::ext::context& ctx)
 {
   std::string args = ctx.get<std::string>(0);
   ctx.result(args);
 }
 
-void test3(sqlite3pp::ext::context& ctx)
+static void test3(sqlite3pp::ext::context& ctx)
 {
   ctx.result_copy(0);
 }
 
-std::string test5(std::string const& value)
+static std::string test5(std::string const& value)
 {
   return value;
 }
 
-std::string test6(std::string const& s1, std::string const& s2, std::string const& s3)
+static std::string test6(std::string const& s1, std::string const& s2, std::string const& s3)
 {
   return s1 + s2 + s3;
 }
 
-int main()
+
+#if defined(BUILD_MONOLITHIC)
+#define main	sqlite3pp_function_test_main
+#endif
+
+int main(void)
 {
   try {
     sqlite3pp::database db("test.db");
@@ -68,4 +75,5 @@ int main()
   catch (exception& ex) {
     cout << ex.what() << endl;
   }
+  return 0;
 }

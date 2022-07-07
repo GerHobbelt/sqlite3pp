@@ -1,9 +1,16 @@
 #include <iostream>
 #include "sqlite3pp.h"
 
+#include "monolithic_examples.h"
+
 using namespace std;
 
-int main()
+
+#if defined(BUILD_MONOLITHIC)
+#define main	sqlite3pp_attach_test_main
+#endif
+
+int main(void)
 {
   try {
     sqlite3pp::database db("foods.db");
@@ -27,5 +34,5 @@ int main()
   catch (exception& ex) {
     cout << ex.what() << endl;
   }
-
+  return 0;
 }

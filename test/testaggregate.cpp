@@ -3,21 +3,24 @@
 #include "sqlite3pp.h"
 #include "sqlite3ppext.h"
 
+#include "monolithic_examples.h"
+
 using namespace std;
 
-void step0(sqlite3pp::ext::context& c)
+static void step0(sqlite3pp::ext::context& c)
 {
   int* sum = (int*) c.aggregate_data(sizeof(int));
 
   *sum += c.get<int>(0);
 }
-void finalize0(sqlite3pp::ext::context& c)
+
+static void finalize0(sqlite3pp::ext::context& c)
 {
   int* sum = (int*) c.aggregate_data(sizeof(int));
   c.result(*sum);
 }
 
-void step1(sqlite3pp::ext::context& c)
+static void step1(sqlite3pp::ext::context& c)
 {
   string* sum = (string*) c.aggregate_data(sizeof(string));
 
@@ -27,7 +30,8 @@ void step1(sqlite3pp::ext::context& c)
 
   *sum += c.get<string>(0);
 }
-void finalize1(sqlite3pp::ext::context& c)
+
+static void finalize1(sqlite3pp::ext::context& c)
 {
   string* sum = (string*) c.aggregate_data(sizeof(string));
   c.result(*sum);
@@ -83,7 +87,12 @@ struct plussum
   int n_;
 };
 
-int main()
+
+#if defined(BUILD_MONOLITHIC)
+#define main	sqlite3pp_aggregate_test_main
+#endif
+
+int main(void)
 {
   try {
     sqlite3pp::database db("foods.db");
@@ -115,4 +124,5 @@ int main()
   catch (exception& ex) {
     cout << ex.what() << endl;
   }
+  return 0;
 }
