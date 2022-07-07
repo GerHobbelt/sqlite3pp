@@ -24,7 +24,11 @@ int main(void)
 			       );
 	{
 	  cout << cmd.bind(":name", "user", sqlite3pp::copy) << endl;
+#if 0 // Disabled due to deprecation in SQLite 
 	  cout << cmd.execute_all() << endl;
+#else
+	  cout << cmd.execute() << endl;
+#endif
 	}
       }
       xct.commit();

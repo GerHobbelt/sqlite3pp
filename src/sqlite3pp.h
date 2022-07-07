@@ -302,7 +302,9 @@ namespace sqlite3pp
     bindstream binder(int idx = 1);
 
     int execute();
-    int execute_all();
+#if 0 // Disabled due to deprecation in SQLite 
+	int execute_all();
+#endif
   };
 
   class query : public statement

@@ -491,7 +491,7 @@ namespace sqlite3pp
     return check(rc);
   }
 
-#if 0 // Disabled due to deprecation in SQLite --snej
+#if 0 // Disabled due to deprecation in SQLite 
   int command::execute_all()
   {
     auto rc = execute();

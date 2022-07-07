@@ -24,9 +24,13 @@ static void step1(sqlite3pp::ext::context& c)
 {
   string* sum = (string*) c.aggregate_data(sizeof(string));
 
+#if 0 // Disabled due to deprecation in SQLite 
   if (c.aggregate_count() == 1) {
     new (sum) string;
   }
+#else
+  //TODO
+#endif
 
   *sum += c.get<string>(0);
 }

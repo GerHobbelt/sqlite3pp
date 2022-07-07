@@ -103,7 +103,9 @@ namespace sqlite3pp
       void result_error(char const* msg);
 
       void* aggregate_data(int size);
-      int aggregate_count();
+#if 0 // Disabled due to deprecation in SQLite 
+	  int aggregate_count();
+#endif
 
       template <class... Ts>
       std::tuple<Ts...> to_tuple() {
@@ -189,7 +191,9 @@ namespace sqlite3pp
       {
         context c(ctx, nargs, values);
         T* t = static_cast<T*>(c.aggregate_data(sizeof(T)));
-        if (c.aggregate_count() == 1) new (t) T;
+#if 0 // Disabled due to deprecation in SQLite 
+		if (c.aggregate_count() == 1) new (t) T;
+#endif
 		sqlite3pp::apply([](T* tt, Ps... ps){tt->step(ps...);},
               std::tuple_cat(std::make_tuple(t), c.to_tuple<Ps...>()));
       }
