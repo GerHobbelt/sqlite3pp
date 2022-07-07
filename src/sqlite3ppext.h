@@ -142,7 +142,7 @@ namespace sqlite3pp
       {
         context c(ctx, nargs, values);
         auto f = static_cast<std::function<R (Ps...)>*>(sqlite3_user_data(ctx));
-        c.result(apply(*f, c.to_tuple<Ps...>()));
+        c.result(sqlite3pp::apply(*f, c.to_tuple<Ps...>()));
       }
     }
 
@@ -190,7 +190,7 @@ namespace sqlite3pp
         context c(ctx, nargs, values);
         T* t = static_cast<T*>(c.aggregate_data(sizeof(T)));
         if (c.aggregate_count() == 1) new (t) T;
-        apply([](T* tt, Ps... ps){tt->step(ps...);},
+		sqlite3pp::apply([](T* tt, Ps... ps){tt->step(ps...);},
               std::tuple_cat(std::make_tuple(t), c.to_tuple<Ps...>()));
       }
 
