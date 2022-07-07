@@ -485,7 +485,7 @@ namespace sqlite3pp
                 bool writeable);
     ~blob_handle()                      {if (blob_) sqlite3_blob_close(blob_);}
     uint64_t size() const               {return size_;}
-    ssize_t read(void *dst, size_t len, uint64_t offset);
+	int64_t read(void *dst, size_t len, uint64_t offset);
 
   private:
     sqlite3_blob*   blob_ = nullptr;

@@ -784,7 +784,7 @@ namespace sqlite3pp
     size_ = sqlite3_blob_bytes(blob_);
   }
 
-  ssize_t blob_handle::read(void *dst, size_t len, uint64_t offset) {
+  int64_t blob_handle::read(void *dst, size_t len, uint64_t offset) {
     if (offset + len > size_) {
       if (offset >= size_)
         return -1;
