@@ -148,7 +148,7 @@ namespace sqlite3pp
     void set_update_handler(update_handler h);
     void set_authorize_handler(authorize_handler h);
 
-    sqlite3* handle() const         {return db_;}
+    sqlite3* sqlite3_handle() const         {return db_;}
     
    private:
     database(sqlite3* pdb);
@@ -303,7 +303,7 @@ namespace sqlite3pp
 
     int execute();
 #if 0 // Disabled due to deprecation in SQLite 
-	int execute_all();
+    int execute_all();
 #endif
   };
 
@@ -489,7 +489,7 @@ namespace sqlite3pp
                 bool writeable);
     ~blob_handle()                      {if (blob_) sqlite3_blob_close(blob_);}
     uint64_t size() const               {return size_;}
-	int64_t read(void *dst, size_t len, uint64_t offset);
+    int64_t read(void *dst, size_t len, uint64_t offset);
 
   private:
     sqlite3_blob*   blob_ = nullptr;

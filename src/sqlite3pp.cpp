@@ -162,7 +162,7 @@ namespace sqlite3pp
     do {
       rc = sqlite3_backup_step(bkup, step_page);
       if (h) {
-	h(sqlite3_backup_remaining(bkup), sqlite3_backup_pagecount(bkup), rc);
+    h(sqlite3_backup_remaining(bkup), sqlite3_backup_pagecount(bkup), rc);
       }
     } while (rc == SQLITE_OK || rc == SQLITE_BUSY || rc == SQLITE_LOCKED);
     sqlite3_backup_finish(bkup);
@@ -263,10 +263,12 @@ namespace sqlite3pp
     return check(sqlite3_busy_timeout(db_, ms));
   }
 
-  sqlite3* database::sqlite3_handle()
+#if 0 // already defined in header file
+  sqlite3* database::sqlite3_handle() const
   {
     return db_;
   }
+#endif
 
   statement::statement(database& db, char const* stmt) : checking(db), stmt_(0), tail_(0)
   {
