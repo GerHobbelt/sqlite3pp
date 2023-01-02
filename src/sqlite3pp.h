@@ -39,8 +39,15 @@
 #include <unordered_map>
 
 #ifdef SQLITE3PP_LOADABLE_EXTENSION
+
 #include <sqlite3ext.h>
+
+#if !defined(BUILD_MONOLITHIC)
 SQLITE_EXTENSION_INIT1
+#else
+SQLITE_EXTENSION_INIT3
+#endif
+
 #else
 #  include <sqlite3.h>
 #endif
