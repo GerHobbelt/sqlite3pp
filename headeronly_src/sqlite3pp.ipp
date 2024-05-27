@@ -388,6 +388,11 @@ namespace sqlite3pp
     return check(sqlite3_bind_text(stmt_, idx, value, int(std::strlen(value)), fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC ));
   }
 
+  inline int statement::bind(int idx, char16_t const* value, copy_semantic fcopy)
+  {
+    return check(sqlite3_bind_text16(stmt_, idx, value, std::char_traits<char16_t>::length(value) * sizeof(char16_t), fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC ));
+  }
+
   int statement::bind(int idx, blob value)
   {
     return check(sqlite3_bind_blob(stmt_, idx, value.data, int(value.size), value.fcopy == copy ? SQLITE_TRANSIENT : SQLITE_STATIC ));
@@ -570,6 +575,11 @@ namespace sqlite3pp
   inline char const* query::rows::get(int idx, char const*) const
   {
     return reinterpret_cast<char const*>(sqlite3_column_text(stmt_, idx));
+  }
+
+  inline char16_t const* query::rows::get(int idx, char16_t const*) const
+  {
+    return reinterpret_cast<char16_t const*>(sqlite3_column_text16(stmt_, idx));
   }
 
   inline std::string query::rows::get(int idx, std::string) const
